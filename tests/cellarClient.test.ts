@@ -8,6 +8,7 @@ import { CellarClient, escapeSparqlString } from '../src/services/cellarClient.j
 const mockFetch = vi.fn()
 
 beforeEach(() => {
+  mockFetch.mockReset()
   vi.stubGlobal('fetch', mockFetch)
 })
 
