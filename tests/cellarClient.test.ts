@@ -15,11 +15,12 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 // Helper to build a SPARQL JSON response body
 // ---------------------------------------------------------------------------
-function makeSparqlResponse(bindings: Array<{ work: string; title: string; date: string; resType: string }>) {
+function makeSparqlResponse(bindings: Array<{ work: string; celex: string; title: string; date: string; resType: string }>) {
   return {
     results: {
       bindings: bindings.map(b => ({
         work: { type: 'uri', value: b.work },
+        celex: { type: 'literal', value: b.celex },
         title: { type: 'literal', value: b.title },
         date: { type: 'literal', value: b.date },
         resType: { type: 'literal', value: b.resType },
@@ -34,8 +35,8 @@ function makeSparqlResponse(bindings: Array<{ work: string; title: string; date:
 describe('sparqlQuery()', () => {
   it('T1 – returns CELEX-IDs, title, and type from SPARQL response', async () => {
     const body = makeSparqlResponse([
-      { work: 'http://publications.europa.eu/resource/celex/32021R0694', title: 'Regulation on X', date: '2021-05-01', resType: 'REG' },
-      { work: 'http://publications.europa.eu/resource/celex/32020L0123', title: 'Directive on Y', date: '2020-03-15', resType: 'DIR' },
+      { work: 'http://publications.europa.eu/resource/cellar/uuid1', celex: '32021R0694', title: 'Regulation on X', date: '2021-05-01', resType: 'REG' },
+      { work: 'http://publications.europa.eu/resource/cellar/uuid2', celex: '32020L0123', title: 'Directive on Y', date: '2020-03-15', resType: 'DIR' },
     ])
 
     mockFetch.mockResolvedValueOnce({

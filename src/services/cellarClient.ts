@@ -32,6 +32,7 @@ interface SparqlResponse {
   results: {
     bindings: Array<{
       work: SparqlBindingValue;
+      celex: SparqlBindingValue;
       title: SparqlBindingValue;
       date?: SparqlBindingValue;
       resType: SparqlBindingValue;
@@ -79,9 +80,14 @@ export class CellarClient {
       '    BIND(REPLACE(STR(?resTypeUri), "^.*/", "") AS ?resType)'
     );
 
+    // CELEX identifier
+    whereLines.push(
+      '    ?work cdm:resource_legal_id_celex ?celex .'
+    );
+
     // Expression and title (REQUIRED, not optional)
     whereLines.push(
-      `    ?work cdm:work_has_expression ?expr .`,
+      `    ?expr cdm:expression_belongs_to_work ?work .`,
       `    ?expr cdm:expression_uses_language <http://publications.europa.eu/resource/authority/language/${lang}> .`,
       `    ?expr cdm:expression_title ?title .`
     );
@@ -112,7 +118,7 @@ export class CellarClient {
       'PREFIX cdm: <http://publications.europa.eu/ontology/cdm#>',
       'PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>',
       '',
-      'SELECT DISTINCT ?work ?title ?date ?resType WHERE {',
+      'SELECT DISTINCT ?work ?celex ?title ?date ?resType WHERE {',
       ...whereLines,
       '}',
       `ORDER BY DESC(?date)`,
@@ -158,7 +164,7 @@ export class CellarClient {
     const lang = fullParams.language;
 
     return data.results.bindings.map((binding) => {
-      const celex = celexFromUri(binding.work.value);
+      const celex = binding.celex.value;
       return {
         celex,
         title: binding.title.value,
