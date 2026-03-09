@@ -1,4 +1,6 @@
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { CellarClient } from '../services/cellarClient.js'
+import { searchSchema } from '../schemas/searchSchema.js'
 import type { SearchResult } from '../types.js'
 
 export async function handleEurlexSearch(input: {
@@ -50,4 +52,13 @@ export async function handleEurlexSearch(input: {
       isError: true,
     }
   }
+}
+
+export function registerSearchTool(server: McpServer) {
+  server.tool(
+    'eurlex_search',
+    'Sucht EU-Rechtsakte nach Titel via EUR-Lex SPARQL',
+    searchSchema.shape,
+    async (params) => handleEurlexSearch(params)
+  )
 }
