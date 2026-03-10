@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { CellarClient } from '../src/services/cellarClient.js'
+import { CellarClient, escapeSparqlString } from '../src/services/cellarClient.js'
 
 const mockFetch = vi.fn()
 
@@ -49,6 +49,16 @@ describe('CellarClient – Metadata', () => {
       const groupConcatMatches = sparql.match(/GROUP_CONCAT/g) || []
       expect(groupConcatMatches.length).toBeGreaterThanOrEqual(3)
       expect(sparql).toContain('|||')
+    })
+
+    it('M5e – query escapes double-quotes in CELEX ID via escapeSparqlString', () => {
+      const malicious = '32021R"0694'
+      const sparql = client.buildMetadataQuery(malicious, 'DEU')
+
+      // The escaped form should appear in the SPARQL FILTER
+      expect(sparql).toContain('32021R\\"0694')
+      // The raw unescaped double-quote must NOT appear bare in the query
+      expect(sparql).not.toMatch(/32021R"0694/)
     })
 
     it('M5d – query includes skos:prefLabel for EuroVoc labels', () => {

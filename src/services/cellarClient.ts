@@ -230,7 +230,7 @@ export class CellarClient {
       '  (GROUP_CONCAT(DISTINCT ?dirCode; separator="|||") AS ?dirCodes)',
       'WHERE {',
       `  ?work cdm:resource_legal_id_celex ?celexVal .`,
-      `  FILTER(STR(?celexVal) = "${celexId}")`,
+      `  FILTER(STR(?celexVal) = "${escapeSparqlString(celexId)}")`,
       `  ?expr cdm:expression_belongs_to_work ?work .`,
       `  ?expr cdm:expression_uses_language <http://publications.europa.eu/resource/authority/language/${lang}> .`,
       `  ?expr cdm:expression_title ?title .`,
