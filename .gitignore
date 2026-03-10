@@ -14,6 +14,9 @@ build/
 .env
 .env.local
 
+# Local MCP config (contains machine-specific paths)
+.mcp.json
+
 # IDE
 .vscode/
 .idea/

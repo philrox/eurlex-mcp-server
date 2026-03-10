@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "eurlex": {
-      "command": "node",
-      "args": ["dist/index.js"],
-      "cwd": "/Users/philrox/code-projects/honeyfield/eurlex-mcp-server"
-    }
-  }
-}

@@ -8,34 +8,42 @@ export async function handleEurlexFetch(input: {
   format: string
   max_chars: number
 }) {
-  const parsed = fetchSchema.parse(input)
+  try {
+    const parsed = fetchSchema.parse(input)
 
-  const client = new CellarClient()
-  let content = await client.fetchDocument(parsed.celex_id, parsed.language)
+    const client = new CellarClient()
+    let content = await client.fetchDocument(parsed.celex_id, parsed.language)
 
-  if (parsed.format === 'plain') {
-    content = content.replace(/<[^>]*>/g, '')
-  }
+    if (parsed.format === 'plain') {
+      content = content.replace(/<[^>]*>/g, '')
+    }
 
-  const truncated = content.length > parsed.max_chars
-  if (truncated) {
-    content = content.slice(0, parsed.max_chars)
-  }
+    const truncated = content.length > parsed.max_chars
+    if (truncated) {
+      content = content.slice(0, parsed.max_chars)
+    }
 
-  return {
-    content: [
-      {
-        type: 'text' as const,
-        text: JSON.stringify({
-          celex_id: parsed.celex_id,
-          language: parsed.language,
-          content,
-          truncated,
-          char_count: content.length,
-          source_url: `https://publications.europa.eu/resource/celex/${parsed.celex_id}`,
-        }),
-      },
-    ],
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify({
+            celex_id: parsed.celex_id,
+            language: parsed.language,
+            content,
+            truncated,
+            char_count: content.length,
+            source_url: `https://publications.europa.eu/resource/celex/${parsed.celex_id}`,
+          }),
+        },
+      ],
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return {
+      content: [{ type: 'text' as const, text: `Error: ${message}` }],
+      isError: true,
+    }
   }
 }
 

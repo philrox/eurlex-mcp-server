@@ -48,15 +48,6 @@ export function escapeSparqlString(input: string): string {
   return input.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-/**
- * Extracts a CELEX identifier from a Cellar work URI.
- * Example: "http://publications.europa.eu/resource/celex/32020R0001" -> "32020R0001"
- */
-function celexFromUri(uri: string): string {
-  const parts = uri.split('/');
-  return parts[parts.length - 1];
-}
-
 export class CellarClient {
   /**
    * Builds a SPARQL SELECT query from the given parameters.

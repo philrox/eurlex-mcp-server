@@ -125,17 +125,18 @@ describe('Phase 5 Eval – Validation Matrix', () => {
       expect(parsed.content.length).toBeLessThanOrEqual(20_000)
     })
 
-    it('V7: handleEurlexFetch with invalid CELEX → throws', async () => {
+    it('V7: handleEurlexFetch with invalid CELEX → returns isError: true', async () => {
       const { handleEurlexFetch } = await import('../../src/tools/fetch.js')
 
-      await expect(
-        handleEurlexFetch({
-          celex_id: 'INVALID!!!',
-          language: 'DEU',
-          format: 'xhtml',
-          max_chars: 20_000,
-        })
-      ).rejects.toThrow()
+      const result = await handleEurlexFetch({
+        celex_id: 'INVALID!!!',
+        language: 'DEU',
+        format: 'xhtml',
+        max_chars: 20_000,
+      })
+
+      expect(result.isError).toBe(true)
+      expect(result.content[0].text).toMatch(/Error:/)
     })
 
     it('V8: buildSparqlQuery with REG → contains resource-type/REG', () => {
