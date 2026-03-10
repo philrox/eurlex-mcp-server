@@ -5,7 +5,7 @@ import {
   DEFAULT_LANGUAGE,
   DEFAULT_LIMIT,
 } from '../constants.js';
-import type { SparqlQueryParams, SearchResult } from '../types.js';
+import type { SparqlQueryParams, SearchResult, MetadataResult } from '../types.js';
 
 /** Maps 3-letter language codes to CDM expression language URI suffixes */
 const LANGUAGE_URI_MAP: Record<string, string> = {
@@ -25,6 +25,24 @@ const LANGUAGE_HTTP_MAP: Record<string, string> = {
 interface SparqlBindingValue {
   type: string;
   value: string;
+}
+
+/** Shape of the metadata SPARQL JSON results */
+interface MetadataSparqlResponse {
+  results: {
+    bindings: Array<{
+      title?: SparqlBindingValue;
+      dateDoc?: SparqlBindingValue;
+      dateForce?: SparqlBindingValue;
+      dateEnd?: SparqlBindingValue;
+      inForce?: SparqlBindingValue;
+      dateTrans?: SparqlBindingValue;
+      resType?: SparqlBindingValue;
+      authors?: SparqlBindingValue;
+      eurovoc?: SparqlBindingValue;
+      dirCodes?: SparqlBindingValue;
+    }>;
+  };
 }
 
 /** Shape of the SPARQL JSON results */
@@ -192,5 +210,110 @@ export class CellarClient {
     }
 
     return response.text();
+  }
+
+  /**
+   * Builds a SPARQL query to retrieve metadata for a given CELEX ID.
+   */
+  buildMetadataQuery(celexId: string, language: string): string {
+    const lang = LANGUAGE_URI_MAP[language] ?? language;
+    const langLower = LANGUAGE_HTTP_MAP[language] ?? 'de';
+
+    const query = [
+      'PREFIX cdm: <http://publications.europa.eu/ontology/cdm#>',
+      'PREFIX skos: <http://www.w3.org/2004/02/skos/core#>',
+      'PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>',
+      '',
+      'SELECT ?title ?dateDoc ?dateForce ?dateEnd ?inForce ?dateTrans ?resType',
+      '  (GROUP_CONCAT(DISTINCT ?authorName; separator="|||") AS ?authors)',
+      '  (GROUP_CONCAT(DISTINCT ?evLabel; separator="|||") AS ?eurovoc)',
+      '  (GROUP_CONCAT(DISTINCT ?dirCode; separator="|||") AS ?dirCodes)',
+      'WHERE {',
+      `  ?work cdm:resource_legal_id_celex ?celexVal .`,
+      `  FILTER(STR(?celexVal) = "${celexId}")`,
+      `  ?expr cdm:expression_belongs_to_work ?work .`,
+      `  ?expr cdm:expression_uses_language <http://publications.europa.eu/resource/authority/language/${lang}> .`,
+      `  ?expr cdm:expression_title ?title .`,
+      '  OPTIONAL { ?work cdm:work_date_document ?dateDoc . }',
+      '  OPTIONAL { ?work cdm:resource_legal_date_entry-into-force ?dateForce . }',
+      '  OPTIONAL { ?work cdm:resource_legal_date_end-of-validity ?dateEnd . }',
+      '  OPTIONAL { ?work cdm:resource_legal_in-force ?inForce . }',
+      '  OPTIONAL { ?work cdm:resource_legal_date_transposition ?dateTrans . }',
+      '  OPTIONAL {',
+      '    ?work cdm:work_has_resource-type ?resTypeUri .',
+      '    BIND(REPLACE(STR(?resTypeUri), "^.*/", "") AS ?resType)',
+      '  }',
+      '  OPTIONAL {',
+      '    ?work cdm:work_created_by_agent ?agent .',
+      '    ?agent cdm:agent_name ?authorName .',
+      '  }',
+      '  OPTIONAL {',
+      '    ?work cdm:work_is_about_concept_eurovoc ?evConcept .',
+      '    ?evConcept skos:prefLabel ?evLabel .',
+      `    FILTER(LANG(?evLabel) = "${langLower}")`,
+      '  }',
+      '  OPTIONAL {',
+      '    ?work cdm:resource_legal_is_about_concept_directory-code ?dirCode .',
+      '  }',
+      '}',
+      'GROUP BY ?title ?dateDoc ?dateForce ?dateEnd ?inForce ?dateTrans ?resType',
+    ].join('\n');
+
+    return query;
+  }
+
+  /**
+   * Fetches metadata for a CELEX ID from the SPARQL endpoint.
+   */
+  async metadataQuery(celexId: string, language: string): Promise<MetadataResult> {
+    const sparql = this.buildMetadataQuery(celexId, language);
+
+    const response = await fetch(SPARQL_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/sparql-query',
+        Accept: 'application/sparql-results+json',
+      },
+      body: sparql,
+    });
+
+    if (!response.ok) {
+      throw new Error(`SPARQL endpoint error: ${response.status}`);
+    }
+
+    const data = (await response.json()) as MetadataSparqlResponse;
+
+    if (data.results.bindings.length === 0) {
+      throw new Error(`No metadata found for CELEX: ${celexId}`);
+    }
+
+    const binding = data.results.bindings[0];
+    const httpLang = LANGUAGE_HTTP_MAP[language] ?? 'de';
+
+    const splitConcat = (value: string | undefined): string[] => {
+      if (!value) return [];
+      return value.split('|||').filter((s) => s !== '');
+    };
+
+    const parseInForce = (value: string | undefined): boolean | null => {
+      if (value === 'true' || value === '1') return true;
+      if (value === 'false' || value === '0') return false;
+      return null;
+    };
+
+    return {
+      celex_id: celexId,
+      title: binding.title?.value ?? '',
+      date_document: binding.dateDoc?.value ?? '',
+      date_entry_into_force: binding.dateForce?.value ?? '',
+      date_end_of_validity: binding.dateEnd?.value ?? '',
+      in_force: parseInForce(binding.inForce?.value),
+      date_transposition: binding.dateTrans?.value ?? '',
+      resource_type: binding.resType?.value ?? '',
+      authors: splitConcat(binding.authors?.value),
+      eurovoc_concepts: splitConcat(binding.eurovoc?.value),
+      directory_codes: splitConcat(binding.dirCodes?.value),
+      eurlex_url: `${EURLEX_BASE}/${httpLang}/TXT/?uri=CELEX:${celexId}`,
+    };
   }
 }

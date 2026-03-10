@@ -311,7 +311,7 @@ describe('Phase 5 Eval – Validation Matrix', () => {
       const { tools } = await pair.client.listTools()
       const toolNames = tools.map((t) => t.name).sort()
 
-      expect(toolNames).toEqual(['eurlex_fetch', 'eurlex_search'])
+      expect(toolNames).toEqual(['eurlex_fetch', 'eurlex_metadata', 'eurlex_search'])
     })
 
     it('V20: two createServer calls return different instances', async () => {
@@ -325,8 +325,8 @@ describe('Phase 5 Eval – Validation Matrix', () => {
       const { tools: tools1 } = await pair1.client.listTools()
       const { tools: tools2 } = await pair2.client.listTools()
 
-      expect(tools1.map((t) => t.name).sort()).toEqual(['eurlex_fetch', 'eurlex_search'])
-      expect(tools2.map((t) => t.name).sort()).toEqual(['eurlex_fetch', 'eurlex_search'])
+      expect(tools1.map((t) => t.name).sort()).toEqual(['eurlex_fetch', 'eurlex_metadata', 'eurlex_search'])
+      expect(tools2.map((t) => t.name).sort()).toEqual(['eurlex_fetch', 'eurlex_metadata', 'eurlex_search'])
     })
 
     it('V22: listPrompts returns eurlex_guide', async () => {

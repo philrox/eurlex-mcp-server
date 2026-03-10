@@ -30,3 +30,18 @@ export interface SearchToolOutput {
   total: number
   query_used: string
 }
+
+export interface MetadataResult {
+  celex_id: string
+  title: string
+  date_document: string
+  date_entry_into_force: string
+  date_end_of_validity: string
+  in_force: boolean | null
+  date_transposition: string
+  resource_type: string
+  authors: string[]
+  eurovoc_concepts: string[]
+  directory_codes: string[]
+  eurlex_url: string
+}
