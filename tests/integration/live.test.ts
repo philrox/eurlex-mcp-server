@@ -62,4 +62,18 @@ describe('Phase 5 – Live Validation', () => {
     expect(typeof content).toBe('string')
     expect(content.length).toBeGreaterThan(10_000)
   }, TIMEOUT)
+
+  // M-LIVE-1: Metadata for AI Act retrievable with real data
+  it('M-LIVE-1: metadataQuery returns metadata for AI Act (32024R1689)', async () => {
+    const result = await client.metadataQuery('32024R1689', 'DEU')
+
+    expect(result.celex_id).toBe('32024R1689')
+    expect(result.title).toBeDefined()
+    expect(result.title.length).toBeGreaterThan(0)
+    expect(Array.isArray(result.authors)).toBe(true)
+    expect(result.eurovoc_concepts.length).toBeGreaterThan(0)
+    expect(result.in_force).toBe(true)
+    expect(result.resource_type).toBe('REG')
+    expect(result.eurlex_url).toContain('32024R1689')
+  }, TIMEOUT)
 })

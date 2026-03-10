@@ -164,7 +164,7 @@ describe('Phase 5 Eval – Validation Matrix', () => {
       expect(sparql).toContain('2023-01-15')
     })
 
-    it('V10: fetchDocument uses Accept: text/html via EUR-Lex URL', async () => {
+    it('V10: fetchDocument uses Cellar REST API with content negotiation', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         text: async () => '<html></html>',
@@ -175,12 +175,12 @@ describe('Phase 5 Eval – Validation Matrix', () => {
 
       expect(mockFetch).toHaveBeenCalledOnce()
       const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit]
-      expect(url).toContain('eur-lex.europa.eu')
+      expect(url).toContain('publications.europa.eu/resource/celex')
       const headers = options.headers as Record<string, string>
-      expect(headers['Accept']).toBe('text/html')
+      expect(headers['Accept']).toBe('application/xhtml+xml')
     })
 
-    it('V11: fetchDocument DEU uses DE in EUR-Lex URL path', async () => {
+    it('V11: fetchDocument DEU sets Accept-Language: de', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         text: async () => '<html></html>',
@@ -190,8 +190,9 @@ describe('Phase 5 Eval – Validation Matrix', () => {
       await client.fetchDocument('32024R1689', 'DEU')
 
       expect(mockFetch).toHaveBeenCalledOnce()
-      const [url] = mockFetch.mock.calls[0] as [string, RequestInit]
-      expect(url).toContain('/DE/TXT/HTML/')
+      const [, options] = mockFetch.mock.calls[0] as [string, RequestInit]
+      const headers = options.headers as Record<string, string>
+      expect(headers['Accept-Language']).toBe('de')
     })
 
     it('V12: buildSparqlQuery contains BIND and ?resType', () => {
@@ -311,7 +312,7 @@ describe('Phase 5 Eval – Validation Matrix', () => {
       const { tools } = await pair.client.listTools()
       const toolNames = tools.map((t) => t.name).sort()
 
-      expect(toolNames).toEqual(['eurlex_fetch', 'eurlex_search'])
+      expect(toolNames).toEqual(['eurlex_fetch', 'eurlex_metadata', 'eurlex_search'])
     })
 
     it('V20: two createServer calls return different instances', async () => {
@@ -325,8 +326,8 @@ describe('Phase 5 Eval – Validation Matrix', () => {
       const { tools: tools1 } = await pair1.client.listTools()
       const { tools: tools2 } = await pair2.client.listTools()
 
-      expect(tools1.map((t) => t.name).sort()).toEqual(['eurlex_fetch', 'eurlex_search'])
-      expect(tools2.map((t) => t.name).sort()).toEqual(['eurlex_fetch', 'eurlex_search'])
+      expect(tools1.map((t) => t.name).sort()).toEqual(['eurlex_fetch', 'eurlex_metadata', 'eurlex_search'])
+      expect(tools2.map((t) => t.name).sort()).toEqual(['eurlex_fetch', 'eurlex_metadata', 'eurlex_search'])
     })
 
     it('V22: listPrompts returns eurlex_guide', async () => {

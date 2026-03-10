@@ -141,7 +141,7 @@ describe('fetchDocument()', () => {
     await expect(client.fetchDocument('00000X0000', 'DEU')).rejects.toThrow('Document not found: 00000X0000')
   })
 
-  it('T8 – uses EUR-Lex HTML URL with correct language path', async () => {
+  it('T8 – uses Cellar REST URL with content negotiation headers', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       text: async () => '<html></html>',
@@ -153,13 +153,14 @@ describe('fetchDocument()', () => {
     expect(mockFetch).toHaveBeenCalledOnce()
     const [url, options] = mockFetch.mock.calls[0] as [string, RequestInit]
 
-    expect(url).toBe('https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:32021R0694')
+    expect(url).toBe('https://publications.europa.eu/resource/celex/32021R0694')
 
     const headers = options.headers as Record<string, string>
-    expect(headers['Accept']).toBe('text/html')
+    expect(headers['Accept']).toBe('application/xhtml+xml')
+    expect(headers['Accept-Language']).toBe('en')
   })
 
-  it('T9 – maps DEU to DE in EUR-Lex URL path', async () => {
+  it('T9 – maps DEU to de in Accept-Language header', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       text: async () => '<html></html>',
@@ -169,8 +170,9 @@ describe('fetchDocument()', () => {
     await client.fetchDocument('32021R0694', 'DEU')
 
     expect(mockFetch).toHaveBeenCalledOnce()
-    const [url] = mockFetch.mock.calls[0] as [string, RequestInit]
-    expect(url).toContain('/DE/TXT/HTML/')
+    const [, options] = mockFetch.mock.calls[0] as [string, RequestInit]
+    const headers = options.headers as Record<string, string>
+    expect(headers['Accept-Language']).toBe('de')
   })
 })
 
