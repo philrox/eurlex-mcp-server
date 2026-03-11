@@ -8,6 +8,7 @@ import { registerSearchTool } from './tools/search.js'
 import { registerFetchTool } from './tools/fetch.js'
 import { registerMetadataTool } from './tools/metadata.js'
 import { registerCitationsTool } from './tools/citations.js'
+import { registerEurovocTool } from './tools/eurovoc.js'
 import { registerGuidePrompt } from './prompts/guide.js'
 
 // ---------------------------------------------------------------------------
@@ -24,6 +25,7 @@ export function createServer(): McpServer {
   registerFetchTool(server)
   registerMetadataTool(server)
   registerCitationsTool(server)
+  registerEurovocTool(server)
   registerGuidePrompt(server)
 
   return server

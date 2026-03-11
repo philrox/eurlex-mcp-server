@@ -55,7 +55,7 @@ describe('Phase 5 – Smoke Tests', () => {
     const { tools } = await pair.client.listTools()
     const toolNames = tools.map((t) => t.name).sort()
 
-    expect(toolNames).toEqual(['eurlex_citations', 'eurlex_fetch', 'eurlex_metadata', 'eurlex_search'])
+    expect(toolNames).toEqual(['eurlex_by_eurovoc', 'eurlex_citations', 'eurlex_fetch', 'eurlex_metadata', 'eurlex_search'])
   })
 
   // V20: Session-Management → factory creates independent servers per call
@@ -68,8 +68,8 @@ describe('Phase 5 – Smoke Tests', () => {
     const { tools: tools1 } = await pair1.client.listTools()
     const { tools: tools2 } = await pair2.client.listTools()
 
-    expect(tools1.map((t) => t.name).sort()).toEqual(['eurlex_citations', 'eurlex_fetch', 'eurlex_metadata', 'eurlex_search'])
-    expect(tools2.map((t) => t.name).sort()).toEqual(['eurlex_citations', 'eurlex_fetch', 'eurlex_metadata', 'eurlex_search'])
+    expect(tools1.map((t) => t.name).sort()).toEqual(['eurlex_by_eurovoc', 'eurlex_citations', 'eurlex_fetch', 'eurlex_metadata', 'eurlex_search'])
+    expect(tools2.map((t) => t.name).sort()).toEqual(['eurlex_by_eurovoc', 'eurlex_citations', 'eurlex_fetch', 'eurlex_metadata', 'eurlex_search'])
 
     // They should be distinct object instances
     expect(pair1.server).not.toBe(pair2.server)
@@ -110,6 +110,18 @@ describe('Phase 5 – Smoke Tests', () => {
     expect(metadata?.annotations).toBeDefined()
     expect(metadata?.annotations?.readOnlyHint).toBe(true)
     expect(metadata?.annotations?.destructiveHint).toBe(false)
+  })
+
+  it('eurlex_by_eurovoc has annotations readOnlyHint=true, destructiveHint=false', async () => {
+    const pair = await createTestPair()
+    pairs.push(pair)
+
+    const { tools } = await pair.client.listTools()
+    const eurovoc = tools.find((t) => t.name === 'eurlex_by_eurovoc')
+
+    expect(eurovoc?.annotations).toBeDefined()
+    expect(eurovoc?.annotations?.readOnlyHint).toBe(true)
+    expect(eurovoc?.annotations?.destructiveHint).toBe(false)
   })
 
   it('eurlex_citations has annotations readOnlyHint=true, destructiveHint=false', async () => {

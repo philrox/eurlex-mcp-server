@@ -445,4 +445,86 @@ export class CellarClient {
       total: citations.length,
     };
   }
+
+  /**
+   * Builds a SPARQL query to find EU legal acts by EuroVoc concept.
+   * Accepts either a label string (resolved via skos:prefLabel) or a direct URI.
+   */
+  buildEurovocQuery(
+    concept: string,
+    resourceType: string,
+    language: string,
+    limit: number
+  ): string {
+    const lang = LANGUAGE_URI_MAP[language] ?? language;
+    const isUri = concept.startsWith('http');
+
+    const conceptFilter = isUri
+      ? `  ?work cdm:work_is_about_concept_eurovoc <${concept}> .`
+      : [
+          `  ?work cdm:work_is_about_concept_eurovoc ?evConcept .`,
+          `  ?evConcept skos:prefLabel ?evLabel .`,
+          `  FILTER(CONTAINS(LCASE(STR(?evLabel)), LCASE("${escapeSparqlString(concept)}")))`,
+        ].join('\n');
+
+    const typeFilter = resourceType !== 'any'
+      ? `  ?work cdm:work_has_resource-type <http://publications.europa.eu/resource/authority/resource-type/${resourceType}> .`
+      : '';
+
+    return [
+      'PREFIX cdm: <http://publications.europa.eu/ontology/cdm#>',
+      'PREFIX skos: <http://www.w3.org/2004/02/skos/core#>',
+      'PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>',
+      '',
+      'SELECT DISTINCT ?work ?celex ?title ?date ?resType WHERE {',
+      conceptFilter,
+      typeFilter,
+      '  ?work cdm:resource_legal_id_celex ?celex .',
+      '  ?work cdm:work_has_resource-type ?resTypeUri .',
+      '  BIND(REPLACE(STR(?resTypeUri), "^.*/", "") AS ?resType)',
+      `  ?expr cdm:expression_belongs_to_work ?work .`,
+      `  ?expr cdm:expression_uses_language <http://publications.europa.eu/resource/authority/language/${lang}> .`,
+      '  ?expr cdm:expression_title ?title .',
+      '  OPTIONAL { ?work cdm:work_date_document ?date . }',
+      `  FILTER NOT EXISTS { ?work cdm:do_not_index "true"^^xsd:boolean }`,
+      '}',
+      'ORDER BY DESC(?date)',
+      `LIMIT ${limit}`,
+    ].join('\n');
+  }
+
+  /**
+   * Executes a EuroVoc concept query against the SPARQL endpoint and returns search results.
+   */
+  async eurovocQuery(
+    concept: string,
+    resourceType: string,
+    language: string,
+    limit: number
+  ): Promise<SearchResult[]> {
+    const sparql = this.buildEurovocQuery(concept, resourceType, language, limit);
+    const httpLang = LANGUAGE_HTTP_MAP[language] ?? 'de';
+
+    const response = await fetch(SPARQL_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/sparql-query',
+        Accept: 'application/sparql-results+json',
+      },
+      body: sparql,
+    });
+
+    if (!response.ok) {
+      throw new Error(`SPARQL endpoint error: ${response.status}`);
+    }
+
+    const data = (await response.json()) as SparqlResponse;
+    return data.results.bindings.map((b) => ({
+      celex: b.celex.value,
+      title: b.title.value,
+      date: b.date?.value ?? '',
+      type: b.resType.value,
+      eurlex_url: `${EURLEX_BASE}/${httpLang}/TXT/?uri=CELEX:${b.celex.value}`,
+    }));
+  }
 }
