@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SPARQL_ENDPOINT, CELLAR_REST_BASE, DEFAULT_LANGUAGE, DEFAULT_LIMIT, MAX_CHARS_DEFAULT, MAX_CHARS_LIMIT } from '../src/constants.js'
+import { SPARQL_ENDPOINT, CELLAR_REST_BASE, DEFAULT_LANGUAGE, DEFAULT_LIMIT, MAX_CHARS_DEFAULT, MAX_CHARS_LIMIT, RESOURCE_TYPES } from '../src/constants.js'
 
 describe('Project Setup', () => {
   it('constants are defined correctly', () => {
@@ -9,5 +9,8 @@ describe('Project Setup', () => {
     expect(DEFAULT_LIMIT).toBe(10)
     expect(MAX_CHARS_DEFAULT).toBe(20000)
     expect(MAX_CHARS_LIMIT).toBe(50000)
+    expect(RESOURCE_TYPES).toHaveLength(14)
+    expect(RESOURCE_TYPES).toContain('REG')
+    expect(RESOURCE_TYPES).toContain('any')
   })
 })

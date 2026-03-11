@@ -6,3 +6,12 @@ export const DEFAULT_LIMIT = 10
 export const MAX_CHARS_DEFAULT = 20000
 export const MAX_CHARS_LIMIT = 50000
 export const REQUEST_TIMEOUT_MS = 30000
+
+export const RESOURCE_TYPES = [
+  'REG', 'REG_IMPL', 'REG_DEL',
+  'DIR', 'DIR_IMPL', 'DIR_DEL',
+  'DEC', 'DEC_IMPL', 'DEC_DEL',
+  'JUDG', 'ORDER', 'OPIN_AG',
+  'RECO',
+  'any',
+] as const
