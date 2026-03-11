@@ -58,6 +58,18 @@ describe('Phase 5 – Smoke Tests', () => {
     expect(toolNames).toEqual(['eurlex_by_eurovoc', 'eurlex_citations', 'eurlex_consolidated', 'eurlex_fetch', 'eurlex_metadata', 'eurlex_search'])
   })
 
+  // V-NEW-7: server has exactly 6 tools registered (count + names)
+  it('V-NEW-7 – server has exactly 6 tools registered (count + names)', async () => {
+    const pair = await createTestPair()
+    pairs.push(pair)
+
+    const { tools } = await pair.client.listTools()
+    expect(tools).toHaveLength(6)
+
+    const toolNames = tools.map((t) => t.name).sort()
+    expect(toolNames).toEqual(['eurlex_by_eurovoc', 'eurlex_citations', 'eurlex_consolidated', 'eurlex_fetch', 'eurlex_metadata', 'eurlex_search'])
+  })
+
   // V20: Session-Management → factory creates independent servers per call
   it('V20 – factory creates independent server instances per call', async () => {
     const pair1 = await createTestPair()

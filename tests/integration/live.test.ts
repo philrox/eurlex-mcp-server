@@ -76,4 +76,63 @@ describe('Phase 5 – Live Validation', () => {
     expect(result.resource_type).toBe('REG')
     expect(result.eurlex_url).toContain('32024R1689')
   }, TIMEOUT)
+
+  // C-LIVE-1: Citations for DSGVO (use ENG — more related acts have English titles)
+  it('C-LIVE-1: citationsQuery returns citations for DSGVO (32016R0679)', async () => {
+    const result = await client.citationsQuery('32016R0679', 'ENG', 'both', 50)
+
+    expect(result.celex_id).toBe('32016R0679')
+    expect(result.total).toBeGreaterThanOrEqual(1)
+    expect(result.citations.length).toBeGreaterThanOrEqual(1)
+
+    const first = result.citations[0]
+    expect(first).toHaveProperty('celex')
+    expect(first).toHaveProperty('title')
+    expect(first).toHaveProperty('relationship')
+    expect(first).toHaveProperty('eurlex_url')
+  }, TIMEOUT)
+
+  // E-LIVE-1: EuroVoc finds AI Act (use direct URI + REG filter to narrow results)
+  it('E-LIVE-1: eurovocQuery for AI concept finds AI Act', async () => {
+    const results = await client.eurovocQuery(
+      'http://eurovoc.europa.eu/3030',  // EuroVoc concept: artificial intelligence
+      'REG',
+      'ENG',
+      50
+    )
+
+    expect(results.length).toBeGreaterThanOrEqual(1)
+    const celexIds = results.map(r => r.celex)
+    expect(celexIds).toContain('32024R1689')
+  }, TIMEOUT)
+
+  // CON-LIVE-1: Consolidated DSGVO
+  it('CON-LIVE-1: fetchConsolidated returns consolidated text for DSGVO (reg/2016/679)', async () => {
+    const result = await client.fetchConsolidated('reg', 2016, 679, 'DEU')
+
+    expect(result.content).toBeDefined()
+    expect(result.content.length).toBeGreaterThan(1000)
+    expect(result.eliUrl).toContain('reg/2016/679')
+  }, TIMEOUT)
+
+  // S-LIVE-1: Enhanced Search with resource_type REG — verify filter is applied
+  it('S-LIVE-1: sparqlQuery with resource_type REG finds regulations', async () => {
+    const results = await client.sparqlQuery('Datenschutz', {
+      resource_type: 'REG',
+      language: 'DEU',
+      limit: 10,
+    })
+
+    expect(results.length).toBeGreaterThanOrEqual(1)
+    // At least the majority should be REG (SPARQL binding may show the resolved type)
+    const regCount = results.filter(r => r.type === 'REG').length
+    expect(regCount).toBeGreaterThanOrEqual(1)
+  }, TIMEOUT)
+
+  // ERR-LIVE-1: Error case with invalid CELEX
+  it('ERR-LIVE-1: metadataQuery with invalid CELEX returns clean error', async () => {
+    await expect(
+      client.metadataQuery('99999X9999', 'DEU')
+    ).rejects.toThrow(/No metadata found for CELEX/)
+  }, TIMEOUT)
 })
