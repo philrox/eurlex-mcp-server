@@ -58,8 +58,8 @@ describe('Phase 4 Eval – Server', () => {
     const { tools } = await pair.client.listTools()
     const toolNames = tools.map((t) => t.name).sort()
 
-    expect(tools).toHaveLength(5)
-    expect(toolNames).toEqual(['eurlex_by_eurovoc', 'eurlex_citations', 'eurlex_fetch', 'eurlex_metadata', 'eurlex_search'])
+    expect(tools).toHaveLength(6)
+    expect(toolNames).toEqual(['eurlex_by_eurovoc', 'eurlex_citations', 'eurlex_consolidated', 'eurlex_fetch', 'eurlex_metadata', 'eurlex_search'])
   })
 
   it('eurlex_search has annotations readOnlyHint=true, destructiveHint=false', async () => {

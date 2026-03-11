@@ -60,3 +60,14 @@ export interface CitationsResult {
   citations: CitationEntry[]
   total: number
 }
+
+export interface ConsolidatedResult {
+  doc_type: string
+  year: number
+  number: number
+  language: string
+  content: string
+  truncated: boolean
+  char_count: number
+  eli_url: string
+}

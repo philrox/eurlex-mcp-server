@@ -21,6 +21,13 @@ const LANGUAGE_HTTP_MAP: Record<string, string> = {
   FRA: 'fr',
 };
 
+/** Maps 3-letter language codes to ELI URL language codes (ISO 639-3) */
+const LANGUAGE_ELI_MAP: Record<string, string> = {
+  DEU: 'deu',
+  ENG: 'eng',
+  FRA: 'fra',
+};
+
 /** Shape of a single SPARQL binding value */
 interface SparqlBindingValue {
   type: string;
@@ -530,5 +537,36 @@ export class CellarClient {
       type: b.resType.value,
       eurlex_url: `${EURLEX_BASE}/${httpLang}/TXT/?uri=CELEX:${b.celex.value}`,
     }));
+  }
+
+  /**
+   * Fetches the consolidated (currently applicable) version of an EU legal act via ELI URL.
+   */
+  async fetchConsolidated(
+    docType: string,
+    year: number,
+    number: number,
+    language: string
+  ): Promise<{ content: string; eliUrl: string }> {
+    const eliLang = LANGUAGE_ELI_MAP[language] ?? 'deu'
+    const eliUrl = `http://data.europa.eu/eli/${docType}/${year}/${number}/${eliLang}/xhtml`
+
+    const response = await fetch(eliUrl, {
+      method: 'GET',
+      headers: { Accept: 'application/xhtml+xml' },
+      redirect: 'follow',  // ELI URLs redirect to EUR-Lex
+    })
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error(
+          `Keine konsolidierte Fassung für ${docType}/${year}/${number} verfügbar. ` +
+          `Verwenden Sie eurlex_fetch mit der CELEX-ID für die Original-OJ-Version.`
+        )
+      }
+      throw new Error(`Consolidated document error: ${docType}/${year}/${number} (HTTP ${response.status})`)
+    }
+
+    return { content: await response.text(), eliUrl }
   }
 }
