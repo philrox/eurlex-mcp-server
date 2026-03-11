@@ -547,7 +547,7 @@ export class CellarClient {
     year: number,
     number: number,
     language: string
-  ): Promise<string> {
+  ): Promise<{ content: string; eliUrl: string }> {
     const eliLang = LANGUAGE_ELI_MAP[language] ?? 'deu'
     const eliUrl = `http://data.europa.eu/eli/${docType}/${year}/${number}/${eliLang}/xhtml`
 
@@ -567,6 +567,6 @@ export class CellarClient {
       throw new Error(`Consolidated document error: ${docType}/${year}/${number} (HTTP ${response.status})`)
     }
 
-    return response.text()
+    return { content: await response.text(), eliUrl }
   }
 }

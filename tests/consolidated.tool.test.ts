@@ -13,9 +13,12 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
+const mockResult = (content: string, eliUrl = 'http://data.europa.eu/eli/reg/2024/1689/deu/xhtml') =>
+  ({ content, eliUrl })
+
 describe('handleEurlexConsolidated()', () => {
   it('CO7 – returns document content with truncation info', async () => {
-    mockFetchConsolidated.mockResolvedValueOnce('<html><body>Content</body></html>')
+    mockFetchConsolidated.mockResolvedValueOnce(mockResult('<html><body>Content</body></html>'))
 
     const result = await handleEurlexConsolidated({
       doc_type: 'reg',
@@ -35,7 +38,7 @@ describe('handleEurlexConsolidated()', () => {
   })
 
   it('CO8 – strips HTML in plain format', async () => {
-    mockFetchConsolidated.mockResolvedValueOnce('<html><body><p>Text</p></body></html>')
+    mockFetchConsolidated.mockResolvedValueOnce(mockResult('<html><body><p>Text</p></body></html>'))
 
     const result = await handleEurlexConsolidated({
       doc_type: 'reg',
@@ -52,7 +55,7 @@ describe('handleEurlexConsolidated()', () => {
   })
 
   it('CO9 – truncates at max_chars', async () => {
-    mockFetchConsolidated.mockResolvedValueOnce('x'.repeat(30000))
+    mockFetchConsolidated.mockResolvedValueOnce(mockResult('x'.repeat(30000)))
 
     const result = await handleEurlexConsolidated({
       doc_type: 'reg',

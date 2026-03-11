@@ -27,7 +27,7 @@ describe('fetchConsolidated()', () => {
     expect((opts.headers as Record<string, string>).Accept).toBe('application/xhtml+xml')
   })
 
-  it('CO5 – returns HTML content string', async () => {
+  it('CO5 – returns content and eliUrl', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
       text: async () => '<html><body>Artikel 1</body></html>',
@@ -36,7 +36,8 @@ describe('fetchConsolidated()', () => {
     const client = new CellarClient()
     const result = await client.fetchConsolidated('dir', 2022, 2555, 'DEU')
 
-    expect(result).toContain('Artikel 1')
+    expect(result.content).toContain('Artikel 1')
+    expect(result.eliUrl).toContain('data.europa.eu/eli/dir/2022/2555/deu/xhtml')
   })
 
   it('CO6 – throws specific message on 404 with eurlex_fetch hint', async () => {

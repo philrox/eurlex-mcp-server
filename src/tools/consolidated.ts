@@ -2,8 +2,6 @@ import { consolidatedSchema } from '../schemas/consolidatedSchema.js'
 import { CellarClient } from '../services/cellarClient.js'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
-const ELI_LANG: Record<string, string> = { DEU: 'deu', ENG: 'eng', FRA: 'fra' }
-
 export async function handleEurlexConsolidated(input: {
   doc_type: string
   year: number
@@ -16,13 +14,14 @@ export async function handleEurlexConsolidated(input: {
     const parsed = consolidatedSchema.parse(input)
 
     const client = new CellarClient()
-    let content = await client.fetchConsolidated(
+    const { content: rawContent, eliUrl } = await client.fetchConsolidated(
       parsed.doc_type,
       parsed.year,
       parsed.number,
       parsed.language
     )
 
+    let content = rawContent
     if (parsed.format === 'plain') {
       content = content.replace(/<[^>]*>/g, '')
     }
@@ -44,7 +43,7 @@ export async function handleEurlexConsolidated(input: {
             content,
             truncated,
             char_count: content.length,
-            eli_url: `http://data.europa.eu/eli/${parsed.doc_type}/${parsed.year}/${parsed.number}/${ELI_LANG[parsed.language] ?? 'deu'}/xhtml`,
+            eli_url: eliUrl,
           }),
         },
       ],
