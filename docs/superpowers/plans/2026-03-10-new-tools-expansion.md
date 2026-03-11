@@ -1526,12 +1526,21 @@ git commit -m "feat(eurovoc): add eurlex_by_eurovoc tool with handler and regist
 
 ## Chunk 4: Phase 10 — eurlex_consolidated Tool
 
-### Task 10.1: Zod schema + CellarClient.fetchConsolidated()
+> **Plan Review 2026-03-11:** Optimierungen nach Issue-Analyse angewandt:
+> 1. `LANGUAGE_ELI_MAP` Konstante statt Inline-Ternaries
+> 2. `ConsolidatedResult` Interface in `src/types.ts`
+> 3. Spezifische 404-Fehlermeldung mit Hinweis auf `eurlex_fetch`
+> 4. `redirect: 'follow'` explizit dokumentiert
+> 5. `Accept: text/html` Header (unterscheidet sich von fetchDocument)
+> 6. Smoke-Test mit vollständiger alphabetischer Tool-Liste
+
+### Task 10.1: Zod schema + ConsolidatedResult type + CellarClient.fetchConsolidated()
 
 **Files:**
+- Modify: `src/types.ts` — Add ConsolidatedResult interface
+- Modify: `src/services/cellarClient.ts` — Add LANGUAGE_ELI_MAP + fetchConsolidated()
 - Create: `src/schemas/consolidatedSchema.ts`
 - Create: `tests/consolidatedSchema.test.ts`
-- Modify: `src/services/cellarClient.ts`
 - Create: `tests/cellarClient.consolidated.test.ts`
 
 - [ ] **Step 1: Write the failing test for schema**
@@ -1565,7 +1574,24 @@ describe('consolidatedSchema', () => {
 Run: `pnpm vitest run tests/consolidatedSchema.test.ts`
 Expected: FAIL
 
-- [ ] **Step 3: Create consolidatedSchema**
+- [ ] **Step 3: Add ConsolidatedResult type to src/types.ts**
+
+In `src/types.ts`, append:
+
+```typescript
+export interface ConsolidatedResult {
+  doc_type: string
+  year: number
+  number: number
+  language: string
+  content: string
+  truncated: boolean
+  char_count: number
+  eli_url: string
+}
+```
+
+- [ ] **Step 4: Create consolidatedSchema**
 
 Create `src/schemas/consolidatedSchema.ts`:
 
@@ -1592,12 +1618,25 @@ export const consolidatedSchema = z.object({
 export type ConsolidatedInput = z.infer<typeof consolidatedSchema>
 ```
 
-- [ ] **Step 4: Run schema test**
+- [ ] **Step 5: Run schema test**
 
 Run: `pnpm vitest run tests/consolidatedSchema.test.ts`
 Expected: PASS
 
-- [ ] **Step 5: Write the failing test for fetchConsolidated**
+- [ ] **Step 6: Add LANGUAGE_ELI_MAP to CellarClient**
+
+In `src/services/cellarClient.ts`, add after `LANGUAGE_HTTP_MAP`:
+
+```typescript
+/** Maps 3-letter language codes to ELI URL language codes (ISO 639-3) */
+const LANGUAGE_ELI_MAP: Record<string, string> = {
+  DEU: 'deu',
+  ENG: 'eng',
+  FRA: 'fra',
+};
+```
+
+- [ ] **Step 7: Write the failing test for fetchConsolidated**
 
 Create `tests/cellarClient.consolidated.test.ts`:
 
@@ -1640,24 +1679,25 @@ describe('fetchConsolidated()', () => {
     expect(result).toContain('Artikel 1')
   })
 
-  it('CO6 – throws on 404', async () => {
+  it('CO6 – throws specific message on 404 with eurlex_fetch hint', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 404,
     })
 
     const client = new CellarClient()
-    await expect(client.fetchConsolidated('reg', 9999, 9999, 'DEU')).rejects.toThrow()
+    await expect(client.fetchConsolidated('reg', 9999, 9999, 'DEU'))
+      .rejects.toThrow(/eurlex_fetch/)
   })
 })
 ```
 
-- [ ] **Step 6: Run test to verify it fails**
+- [ ] **Step 8: Run test to verify it fails**
 
 Run: `pnpm vitest run tests/cellarClient.consolidated.test.ts`
 Expected: FAIL
 
-- [ ] **Step 7: Implement fetchConsolidated()**
+- [ ] **Step 9: Implement fetchConsolidated()**
 
 Add to CellarClient class:
 
@@ -1668,29 +1708,35 @@ Add to CellarClient class:
     number: number,
     language: string
   ): Promise<string> {
-    const langCode = LANGUAGE_HTTP_MAP[language] ?? 'de'
-    const eliUrl = `http://data.europa.eu/eli/${docType}/${year}/${number}/oj/${langCode === 'de' ? 'deu' : langCode === 'en' ? 'eng' : 'fra'}/xhtml`
+    const eliLang = LANGUAGE_ELI_MAP[language] ?? 'deu'
+    const eliUrl = `http://data.europa.eu/eli/${docType}/${year}/${number}/oj/${eliLang}/xhtml`
 
     const response = await fetch(eliUrl, {
       method: 'GET',
       headers: { Accept: 'text/html' },
-      redirect: 'follow',
+      redirect: 'follow',  // ELI URLs redirect to EUR-Lex
     })
 
     if (!response.ok) {
-      throw new Error(`Consolidated document not found: ${docType}/${year}/${number} (HTTP ${response.status})`)
+      if (response.status === 404) {
+        throw new Error(
+          `Keine konsolidierte Fassung für ${docType}/${year}/${number} verfügbar. ` +
+          `Verwenden Sie eurlex_fetch mit der CELEX-ID für die Original-OJ-Version.`
+        )
+      }
+      throw new Error(`Consolidated document error: ${docType}/${year}/${number} (HTTP ${response.status})`)
     }
 
     return response.text()
   }
 ```
 
-- [ ] **Step 8: Run test to verify it passes**
+- [ ] **Step 10: Run test to verify it passes**
 
 Run: `pnpm vitest run tests/cellarClient.consolidated.test.ts`
 Expected: PASS
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 11: Commit**
 
 ```bash
 git add src/schemas/consolidatedSchema.ts src/services/cellarClient.ts tests/consolidatedSchema.test.ts tests/cellarClient.consolidated.test.ts
@@ -1810,6 +1856,7 @@ Create `src/tools/consolidated.ts`:
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { CellarClient } from '../services/cellarClient.js'
 import { consolidatedSchema } from '../schemas/consolidatedSchema.js'
+import type { ConsolidatedResult } from '../types.js'
 
 export async function handleEurlexConsolidated(input: {
   doc_type: string
@@ -1903,10 +1950,14 @@ git commit -m "feat(consolidated): add eurlex_consolidated tool with ELI-based r
 ```
 
 **Definition of Done Phase 10:**
-- [ ] `consolidatedSchema` validates doc_type, year, number, language, format, max_chars
-- [ ] `CellarClient.fetchConsolidated()` fetches via ELI URL
+- [ ] `ConsolidatedResult` interface in `src/types.ts`
+- [ ] `LANGUAGE_ELI_MAP` constant in `cellarClient.ts` (no inline ternaries)
+- [ ] `consolidatedSchema` validates doc_type, year (1950-2100), number, language, format, max_chars
+- [ ] `CellarClient.fetchConsolidated()` fetches via ELI URL with `redirect: 'follow'` + `Accept: text/html`
+- [ ] Spezifische 404-Fehlermeldung mit Hinweis auf `eurlex_fetch`
 - [ ] Tool handler applies format conversion + truncation (same pattern as eurlex_fetch)
 - [ ] Tool registered as `eurlex_consolidated`
+- [ ] Smoke test updated (6 Tools, alphabetisch: `eurlex_by_eurovoc, eurlex_citations, eurlex_consolidated, eurlex_fetch, eurlex_metadata, eurlex_search`)
 - [ ] 7+ new unit tests, all green
 
 ---
