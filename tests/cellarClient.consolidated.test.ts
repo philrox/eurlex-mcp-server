@@ -50,4 +50,17 @@ describe('fetchConsolidated()', () => {
     await expect(client.fetchConsolidated('reg', 9999, 9999, 'DEU'))
       .rejects.toThrow(/eurlex_fetch/)
   })
+
+  it('CO6b – defaults to deu for unmapped language code', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      text: async () => '<html><body>Testo consolidato</body></html>',
+    })
+
+    const client = new CellarClient()
+    await client.fetchConsolidated('reg', 2024, 1689, 'ITA')
+
+    const [url] = mockFetch.mock.calls[0] as [string, RequestInit]
+    expect(url).toContain('/deu/xhtml')
+  })
 })

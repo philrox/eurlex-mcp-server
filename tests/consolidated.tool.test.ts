@@ -8,6 +8,7 @@ vi.mock('../src/services/cellarClient.js', () => ({
 }))
 
 import { handleEurlexConsolidated } from '../src/tools/consolidated.js'
+import type { ConsolidatedResult } from '../src/types.js'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -69,6 +70,35 @@ describe('handleEurlexConsolidated()', () => {
     const parsed = JSON.parse(result.content[0].text)
     expect(parsed.truncated).toBe(true)
     expect(parsed.char_count).toBeLessThanOrEqual(5000)
+  })
+
+  it('CO-TYPE – result satisfies ConsolidatedResult shape', async () => {
+    mockFetchConsolidated.mockResolvedValueOnce(mockResult('<html><body>Content</body></html>'))
+
+    const result = await handleEurlexConsolidated({
+      doc_type: 'reg',
+      year: 2024,
+      number: 1689,
+      language: 'DEU',
+      format: 'xhtml',
+      max_chars: 20000,
+    })
+
+    const parsed: ConsolidatedResult = JSON.parse(result.content[0].text)
+    const requiredKeys: (keyof ConsolidatedResult)[] = [
+      'doc_type', 'year', 'number', 'language', 'content', 'truncated', 'char_count', 'eli_url',
+    ]
+    for (const key of requiredKeys) {
+      expect(parsed).toHaveProperty(key)
+    }
+    expect(typeof parsed.doc_type).toBe('string')
+    expect(typeof parsed.year).toBe('number')
+    expect(typeof parsed.number).toBe('number')
+    expect(typeof parsed.language).toBe('string')
+    expect(typeof parsed.content).toBe('string')
+    expect(typeof parsed.truncated).toBe('boolean')
+    expect(typeof parsed.char_count).toBe('number')
+    expect(typeof parsed.eli_url).toBe('string')
   })
 
   it('CO10 – returns isError on failure', async () => {

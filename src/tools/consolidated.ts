@@ -1,5 +1,6 @@
 import { consolidatedSchema } from '../schemas/consolidatedSchema.js'
 import { CellarClient } from '../services/cellarClient.js'
+import type { ConsolidatedResult } from '../types.js'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 export async function handleEurlexConsolidated(input: {
@@ -31,20 +32,22 @@ export async function handleEurlexConsolidated(input: {
       content = content.slice(0, parsed.max_chars)
     }
 
+    const result: ConsolidatedResult = {
+      doc_type: parsed.doc_type,
+      year: parsed.year,
+      number: parsed.number,
+      language: parsed.language,
+      content,
+      truncated,
+      char_count: content.length,
+      eli_url: eliUrl,
+    }
+
     return {
       content: [
         {
           type: 'text' as const,
-          text: JSON.stringify({
-            doc_type: parsed.doc_type,
-            year: parsed.year,
-            number: parsed.number,
-            language: parsed.language,
-            content,
-            truncated,
-            char_count: content.length,
-            eli_url: eliUrl,
-          }),
+          text: JSON.stringify(result),
         },
       ],
     }
