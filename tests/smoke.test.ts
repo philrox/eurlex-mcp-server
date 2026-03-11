@@ -47,14 +47,15 @@ describe('Phase 5 – Smoke Tests', () => {
     expect(Array.isArray(tools)).toBe(true)
   })
 
-  // V18: MCP Inspector zeigt 2 Tools → server has eurlex_search + eurlex_fetch registered
-  it('V18 – server exposes exactly eurlex_search and eurlex_fetch tools', async () => {
+  // V18 + V-NEW-7: server exposes exactly 6 tools (count + names)
+  it('V18 – server exposes exactly 6 tools with correct names', async () => {
     const pair = await createTestPair()
     pairs.push(pair)
 
     const { tools } = await pair.client.listTools()
-    const toolNames = tools.map((t) => t.name).sort()
+    expect(tools).toHaveLength(6)
 
+    const toolNames = tools.map((t) => t.name).sort()
     expect(toolNames).toEqual(['eurlex_by_eurovoc', 'eurlex_citations', 'eurlex_consolidated', 'eurlex_fetch', 'eurlex_metadata', 'eurlex_search'])
   })
 

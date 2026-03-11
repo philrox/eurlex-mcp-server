@@ -5,7 +5,7 @@ import {
   DEFAULT_LANGUAGE,
   DEFAULT_LIMIT,
 } from '../constants.js';
-import type { SparqlQueryParams, SearchResult, MetadataResult, CitationsResult } from '../types.js';
+import type { SparqlQueryParams, SearchResult, MetadataResult, CitationsResult, CitationEntry } from '../types.js';
 
 /** Maps 3-letter language codes to CDM expression language URI suffixes */
 const LANGUAGE_URI_MAP: Record<string, string> = {
@@ -349,9 +349,12 @@ export class CellarClient {
     const lang = LANGUAGE_URI_MAP[language] ?? language;
     const escaped = escapeSparqlString(celexId);
 
+    // Use FILTER(STR(...)) for CELEX matching — literals may be typed as xsd:string
+    const sourceFilter = `    ?sourceWork cdm:resource_legal_id_celex ?srcCelex .\n    FILTER(STR(?srcCelex) = "${escaped}")`;
+
     const citesBlock = [
       '  {',
-      `    ?sourceWork cdm:resource_legal_id_celex "${escaped}" .`,
+      sourceFilter,
       '    { ?sourceWork cdm:work_cites_work ?relWork . BIND("cites" AS ?rel) }',
       '    UNION',
       '    { ?sourceWork cdm:resource_legal_based_on_resource_legal ?relWork . BIND("based_on" AS ?rel) }',
@@ -365,25 +368,25 @@ export class CellarClient {
     const citedByBlock = [
       '  {',
       `    ?relWork cdm:work_cites_work ?sourceWork .`,
-      `    ?sourceWork cdm:resource_legal_id_celex "${escaped}" .`,
+      sourceFilter,
       '    BIND("cited_by" AS ?rel)',
       '  }',
       '  UNION',
       '  {',
       `    ?relWork cdm:resource_legal_based_on_resource_legal ?sourceWork .`,
-      `    ?sourceWork cdm:resource_legal_id_celex "${escaped}" .`,
+      sourceFilter,
       '    BIND("basis_for" AS ?rel)',
       '  }',
       '  UNION',
       '  {',
       `    ?relWork cdm:resource_legal_amends_resource_legal ?sourceWork .`,
-      `    ?sourceWork cdm:resource_legal_id_celex "${escaped}" .`,
+      sourceFilter,
       '    BIND("amended_by" AS ?rel)',
       '  }',
       '  UNION',
       '  {',
       `    ?relWork cdm:resource_legal_repeals_resource_legal ?sourceWork .`,
-      `    ?sourceWork cdm:resource_legal_id_celex "${escaped}" .`,
+      sourceFilter,
       '    BIND("repealed_by" AS ?rel)',
       '  }',
     ].join('\n');
@@ -442,7 +445,7 @@ export class CellarClient {
       title: b.title.value,
       date: b.date?.value ?? '',
       type: b.resType.value,
-      relationship: b.rel.value,
+      relationship: b.rel.value as CitationEntry['relationship'],
       eurlex_url: `${EURLEX_BASE}/${httpLang}/TXT/?uri=CELEX:${b.celex.value}`,
     }));
 

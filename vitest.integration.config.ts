@@ -4,10 +4,9 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     clearMocks: true,
-    exclude: [
-      'tests/integration/**',
-      'tests/eval/**',
-      'node_modules/**',
+    include: [
+      'tests/integration/**/*.test.ts',
+      'tests/eval/**/*.test.ts',
     ],
   }
 })
