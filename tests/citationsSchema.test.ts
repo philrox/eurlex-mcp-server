@@ -23,4 +23,14 @@ describe('citationsSchema', () => {
   it('C4 – rejects invalid CELEX-ID', () => {
     expect(() => citationsSchema.parse({ celex_id: 'bad' })).toThrow()
   })
+
+  it('C4a – accepts CELEX ID with parentheses (corrigenda)', () => {
+    const result = citationsSchema.parse({ celex_id: '32023D2454(02)' })
+    expect(result.celex_id).toBe('32023D2454(02)')
+  })
+
+  it('C4b – rejects dangerous characters', () => {
+    expect(() => citationsSchema.parse({ celex_id: '<script>' })).toThrow()
+    expect(() => citationsSchema.parse({ celex_id: '32024R1689{x}' })).toThrow()
+  })
 })

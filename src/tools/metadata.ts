@@ -1,5 +1,6 @@
 import { metadataSchema } from '../schemas/metadataSchema.js'
 import { CellarClient } from '../services/cellarClient.js'
+import { toolError } from '../utils.js'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 export async function handleEurlexMetadata(input: {
@@ -14,11 +15,7 @@ export async function handleEurlexMetadata(input: {
       content: [{ type: 'text' as const, text: JSON.stringify(result) }],
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    return {
-      content: [{ type: 'text' as const, text: `Error: ${message}` }],
-      isError: true,
-    }
+    return toolError(error)
   }
 }
 

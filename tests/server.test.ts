@@ -22,6 +22,22 @@ vi.mock('../src/tools/fetch.js', () => ({
   registerFetchTool: vi.fn(),
 }))
 
+vi.mock('../src/tools/metadata.js', () => ({
+  registerMetadataTool: vi.fn(),
+}))
+
+vi.mock('../src/tools/citations.js', () => ({
+  registerCitationsTool: vi.fn(),
+}))
+
+vi.mock('../src/tools/eurovoc.js', () => ({
+  registerEurovocTool: vi.fn(),
+}))
+
+vi.mock('../src/tools/consolidated.js', () => ({
+  registerConsolidatedTool: vi.fn(),
+}))
+
 vi.mock('../src/prompts/guide.js', () => ({
   registerGuidePrompt: vi.fn(),
 }))
@@ -35,7 +51,7 @@ beforeEach(() => {
 })
 
 // ===========================================================================
-// Tests S1-S4: createServer() factory function
+// Tests S1-S8: createServer() factory function
 // ===========================================================================
 describe('createServer()', () => {
   it('S1 – createServer returns an McpServer instance', async () => {
@@ -71,5 +87,41 @@ describe('createServer()', () => {
     createServer()
 
     expect(registerGuidePrompt).toHaveBeenCalledOnce()
+  })
+
+  it('S5 – createServer calls registerMetadataTool', async () => {
+    const { registerMetadataTool } = await import('../src/tools/metadata.js')
+    const { createServer } = await import('../src/index.js')
+
+    createServer()
+
+    expect(registerMetadataTool).toHaveBeenCalledOnce()
+  })
+
+  it('S6 – createServer calls registerCitationsTool', async () => {
+    const { registerCitationsTool } = await import('../src/tools/citations.js')
+    const { createServer } = await import('../src/index.js')
+
+    createServer()
+
+    expect(registerCitationsTool).toHaveBeenCalledOnce()
+  })
+
+  it('S7 – createServer calls registerEurovocTool', async () => {
+    const { registerEurovocTool } = await import('../src/tools/eurovoc.js')
+    const { createServer } = await import('../src/index.js')
+
+    createServer()
+
+    expect(registerEurovocTool).toHaveBeenCalledOnce()
+  })
+
+  it('S8 – createServer calls registerConsolidatedTool', async () => {
+    const { registerConsolidatedTool } = await import('../src/tools/consolidated.js')
+    const { createServer } = await import('../src/index.js')
+
+    createServer()
+
+    expect(registerConsolidatedTool).toHaveBeenCalledOnce()
   })
 })

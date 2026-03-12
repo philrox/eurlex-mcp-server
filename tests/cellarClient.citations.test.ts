@@ -79,6 +79,26 @@ describe('citationsQuery()', () => {
     expect(result.citations[0].relationship).toBe('cites')
   })
 
+  it('C9a – throws on unexpected relationship value', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        results: {
+          bindings: [{
+            celex: { type: 'literal', value: '32016R0679' },
+            title: { type: 'literal', value: 'Test' },
+            date: { type: 'literal', value: '2016-04-27' },
+            resType: { type: 'literal', value: 'REG' },
+            rel: { type: 'literal', value: 'unknown_relationship' },
+          }],
+        },
+      }),
+    })
+    const client = new CellarClient()
+    await expect(client.citationsQuery('32024R1689', 'DEU', 'both', 20))
+      .rejects.toThrow(/unexpected relationship/i)
+  })
+
   it('C10 – returns empty citations array when no relationships found', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

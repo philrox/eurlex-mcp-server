@@ -44,4 +44,14 @@ describe('metadataSchema', () => {
       metadataSchema.parse({ celex_id: '32024R1689', language: 'ESP' })
     ).toThrow(ZodError)
   })
+
+  it('M7 – accepts CELEX ID with parentheses (corrigenda)', () => {
+    const result = metadataSchema.parse({ celex_id: '32023D2454(02)' })
+    expect(result.celex_id).toBe('32023D2454(02)')
+  })
+
+  it('M8 – rejects dangerous characters', () => {
+    expect(() => metadataSchema.parse({ celex_id: '<script>' })).toThrow(ZodError)
+    expect(() => metadataSchema.parse({ celex_id: '32024R1689{x}' })).toThrow(ZodError)
+  })
 })

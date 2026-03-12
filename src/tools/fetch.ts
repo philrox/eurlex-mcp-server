@@ -1,5 +1,6 @@
 import { fetchSchema } from '../schemas/fetchSchema.js'
 import { CellarClient } from '../services/cellarClient.js'
+import { processContent, toolError } from '../utils.js'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 export async function handleEurlexFetch(input: {
@@ -12,16 +13,8 @@ export async function handleEurlexFetch(input: {
     const parsed = fetchSchema.parse(input)
 
     const client = new CellarClient()
-    let content = await client.fetchDocument(parsed.celex_id, parsed.language)
-
-    if (parsed.format === 'plain') {
-      content = content.replace(/<[^>]*>/g, '')
-    }
-
-    const truncated = content.length > parsed.max_chars
-    if (truncated) {
-      content = content.slice(0, parsed.max_chars)
-    }
+    const raw = await client.fetchDocument(parsed.celex_id, parsed.language)
+    const { content, truncated, charCount } = processContent(raw, parsed.format, parsed.max_chars)
 
     return {
       content: [
@@ -32,18 +25,14 @@ export async function handleEurlexFetch(input: {
             language: parsed.language,
             content,
             truncated,
-            char_count: content.length,
+            char_count: charCount,
             source_url: `https://publications.europa.eu/resource/celex/${parsed.celex_id}`,
           }),
         },
       ],
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    return {
-      content: [{ type: 'text' as const, text: `Error: ${message}` }],
-      isError: true,
-    }
+    return toolError(error)
   }
 }
 

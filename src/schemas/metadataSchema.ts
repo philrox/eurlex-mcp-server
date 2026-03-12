@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export const metadataSchema = z.object({
   celex_id: z.string()
-    .regex(/^\d[A-Z0-9]{4,20}$/)
+    .regex(/^\d[A-Z0-9()]{4,30}$/)
     .describe("CELEX-Identifier, z.B. '32024R1689' für den AI Act"),
   language: z.enum(["DEU", "ENG", "FRA"])
     .default("DEU")

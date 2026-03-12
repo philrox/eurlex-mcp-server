@@ -4,6 +4,7 @@ import {
   EURLEX_BASE,
   DEFAULT_LANGUAGE,
   DEFAULT_LIMIT,
+  REQUEST_TIMEOUT_MS,
 } from '../constants.js';
 import type { SparqlQueryParams, SearchResult, MetadataResult, CitationsResult, CitationEntry } from '../types.js';
 
@@ -83,10 +84,32 @@ interface SparqlResponse {
  * Escapes backslashes and double-quotes.
  */
 export function escapeSparqlString(input: string): string {
-  return input.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return input
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t')
+    .replace(/\0/g, '');
 }
 
 export class CellarClient {
+  private async executeSparql<T>(sparql: string): Promise<T> {
+    const response = await fetch(SPARQL_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/sparql-query',
+        Accept: 'application/sparql-results+json',
+      },
+      body: sparql,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    if (!response.ok) {
+      throw new Error(`SPARQL endpoint error: ${response.status}`);
+    }
+    return (await response.json()) as T;
+  }
+
   /**
    * Builds a SPARQL SELECT query from the given parameters.
    */
@@ -164,7 +187,7 @@ export class CellarClient {
   async sparqlQuery(
     query: string,
     params?: Partial<SparqlQueryParams>
-  ): Promise<SearchResult[]> {
+  ): Promise<{ results: SearchResult[]; sparql: string }> {
     const fullParams: SparqlQueryParams = {
       query,
       resource_type: params?.resource_type ?? 'any',
@@ -176,23 +199,10 @@ export class CellarClient {
 
     const sparql = this.buildSparqlQuery(fullParams);
 
-    const response = await fetch(SPARQL_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/sparql-query',
-        Accept: 'application/sparql-results+json',
-      },
-      body: sparql,
-    });
-
-    if (!response.ok) {
-      throw new Error(`SPARQL endpoint error: ${response.status}`);
-    }
-
-    const data = (await response.json()) as SparqlResponse;
+    const data = await this.executeSparql<SparqlResponse>(sparql);
     const lang = fullParams.language;
 
-    return data.results.bindings.map((binding) => {
+    const results = data.results.bindings.map((binding) => {
       const celex = binding.celex.value;
       return {
         celex,
@@ -202,6 +212,8 @@ export class CellarClient {
         eurlex_url: `${EURLEX_BASE}/${LANGUAGE_HTTP_MAP[lang] ?? 'de'}/TXT/?uri=CELEX:${celex}`,
       };
     });
+
+    return { results, sparql };
   }
 
   /**
@@ -219,6 +231,7 @@ export class CellarClient {
         'Accept-Language': httpLang,
       },
       redirect: 'follow',
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
     if (response.status === 404) {
@@ -288,20 +301,7 @@ export class CellarClient {
   async metadataQuery(celexId: string, language: string): Promise<MetadataResult> {
     const sparql = this.buildMetadataQuery(celexId, language);
 
-    const response = await fetch(SPARQL_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/sparql-query',
-        Accept: 'application/sparql-results+json',
-      },
-      body: sparql,
-    });
-
-    if (!response.ok) {
-      throw new Error(`SPARQL endpoint error: ${response.status}`);
-    }
-
-    const data = (await response.json()) as MetadataSparqlResponse;
+    const data = await this.executeSparql<MetadataSparqlResponse>(sparql);
 
     if (data.results.bindings.length === 0) {
       throw new Error(`No metadata found for CELEX: ${celexId}`);
@@ -426,28 +426,27 @@ export class CellarClient {
     const sparql = this.buildCitationsQuery(celexId, language, direction, limit);
     const httpLang = LANGUAGE_HTTP_MAP[language] ?? 'de';
 
-    const response = await fetch(SPARQL_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/sparql-query',
-        Accept: 'application/sparql-results+json',
-      },
-      body: sparql,
+    const data = await this.executeSparql<CitationsSparqlResponse>(sparql);
+
+    const VALID_RELATIONSHIPS = new Set<CitationEntry['relationship']>([
+      'cites', 'cited_by', 'amends', 'amended_by',
+      'based_on', 'basis_for', 'repeals', 'repealed_by',
+    ]);
+
+    const citations = data.results.bindings.map((b) => {
+      const rel = b.rel.value;
+      if (!VALID_RELATIONSHIPS.has(rel as CitationEntry['relationship'])) {
+        throw new Error(`Unexpected relationship value from SPARQL: ${rel}`);
+      }
+      return {
+        celex: b.celex.value,
+        title: b.title.value,
+        date: b.date?.value ?? '',
+        type: b.resType.value,
+        relationship: rel as CitationEntry['relationship'],
+        eurlex_url: `${EURLEX_BASE}/${httpLang}/TXT/?uri=CELEX:${b.celex.value}`,
+      };
     });
-
-    if (!response.ok) {
-      throw new Error(`SPARQL endpoint error: ${response.status}`);
-    }
-
-    const data = (await response.json()) as CitationsSparqlResponse;
-    const citations = data.results.bindings.map((b) => ({
-      celex: b.celex.value,
-      title: b.title.value,
-      date: b.date?.value ?? '',
-      type: b.resType.value,
-      relationship: b.rel.value as CitationEntry['relationship'],
-      eurlex_url: `${EURLEX_BASE}/${httpLang}/TXT/?uri=CELEX:${b.celex.value}`,
-    }));
 
     return {
       celex_id: celexId,
@@ -519,20 +518,7 @@ export class CellarClient {
     const sparql = this.buildEurovocQuery(concept, resourceType, language, limit);
     const httpLang = LANGUAGE_HTTP_MAP[language] ?? 'de';
 
-    const response = await fetch(SPARQL_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/sparql-query',
-        Accept: 'application/sparql-results+json',
-      },
-      body: sparql,
-    });
-
-    if (!response.ok) {
-      throw new Error(`SPARQL endpoint error: ${response.status}`);
-    }
-
-    const data = (await response.json()) as SparqlResponse;
+    const data = await this.executeSparql<SparqlResponse>(sparql);
     return data.results.bindings.map((b) => ({
       celex: b.celex.value,
       title: b.title.value,
@@ -558,6 +544,7 @@ export class CellarClient {
       method: 'GET',
       headers: { Accept: 'application/xhtml+xml' },
       redirect: 'follow',  // ELI URLs redirect to EUR-Lex
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
 
     if (!response.ok) {

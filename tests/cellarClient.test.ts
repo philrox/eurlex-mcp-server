@@ -45,7 +45,7 @@ describe('sparqlQuery()', () => {
     })
 
     const client = new CellarClient()
-    const results = await client.sparqlQuery('test query')
+    const { results } = await client.sparqlQuery('test query')
 
     expect(results).toHaveLength(2)
     expect(results[0]).toMatchObject({
@@ -69,7 +69,7 @@ describe('sparqlQuery()', () => {
     })
 
     const client = new CellarClient()
-    const results = await client.sparqlQuery('xyznonexistent123')
+    const { results } = await client.sparqlQuery('xyznonexistent123')
     expect(results).toEqual([])
   })
 
@@ -237,6 +237,65 @@ describe('buildSparqlQuery()', () => {
 })
 
 // ===========================================================================
+// Test T14a: buildSparqlQuery with date_to
+// ===========================================================================
+describe('buildSparqlQuery() – date_to', () => {
+  it('T14a – includes FILTER(?date <= ...) when date_to is set', () => {
+    const client = new CellarClient()
+    const sparql = client.buildSparqlQuery({
+      query: 'carbon border adjustment',
+      resource_type: 'any',
+      language: 'DEU',
+      limit: 10,
+      date_to: '2024-06-30',
+    })
+
+    expect(sparql).toContain('FILTER(?date <= "2024-06-30"^^xsd:date)')
+  })
+
+  it('T14b – omits date_to filter when not provided', () => {
+    const client = new CellarClient()
+    const sparql = client.buildSparqlQuery({
+      query: 'carbon border adjustment',
+      resource_type: 'any',
+      language: 'DEU',
+      limit: 10,
+    })
+
+    expect(sparql).not.toContain('FILTER(?date <=')
+  })
+})
+
+// ===========================================================================
+// Test T14c: fetchDocument non-404 errors
+// ===========================================================================
+describe('fetchDocument() – non-404 errors', () => {
+  it('T14c – throws "Fetch error: 500" on HTTP 500', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+    })
+
+    const client = new CellarClient()
+    await expect(client.fetchDocument('32021R0694', 'DEU'))
+      .rejects.toThrow('Fetch error: 500')
+  })
+
+  it('T14d – throws "Fetch error: 503" on HTTP 503', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      statusText: 'Service Unavailable',
+    })
+
+    const client = new CellarClient()
+    await expect(client.fetchDocument('32021R0694', 'DEU'))
+      .rejects.toThrow('Fetch error: 503')
+  })
+})
+
+// ===========================================================================
 // Test V21: SPARQL Injection — escapeSparqlString
 // ===========================================================================
 describe('escapeSparqlString()', () => {
@@ -253,5 +312,98 @@ describe('escapeSparqlString()', () => {
     const sparqlLiteral = `"${escaped}"`
     const unescapedQuotes = sparqlLiteral.match(/(?<!\\)"/g)
     expect(unescapedQuotes).toHaveLength(2) // only the wrapper quotes
+  })
+
+  it('escapes newline characters', () => {
+    expect(escapeSparqlString('line1\nline2')).toBe('line1\\nline2')
+  })
+
+  it('escapes tab characters', () => {
+    expect(escapeSparqlString('tab\there')).toBe('tab\\there')
+  })
+
+  it('escapes carriage return characters', () => {
+    expect(escapeSparqlString('cr\rhere')).toBe('cr\\rhere')
+  })
+
+  it('strips null bytes', () => {
+    expect(escapeSparqlString('null\0byte')).toBe('nullbyte')
+  })
+})
+
+// ===========================================================================
+// Tests: fetch timeout (AbortSignal)
+// ===========================================================================
+describe('fetch timeout', () => {
+  it('sparqlQuery passes AbortSignal to fetch', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ results: { bindings: [] } }),
+    })
+    const client = new CellarClient()
+    await client.sparqlQuery('test')
+    const callArgs = mockFetch.mock.calls[0]
+    expect(callArgs[1].signal).toBeDefined()
+  })
+
+  it('fetchDocument passes AbortSignal to fetch', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      text: async () => '<html></html>',
+    })
+    const client = new CellarClient()
+    await client.fetchDocument('32021R0694', 'DEU')
+    const callArgs = mockFetch.mock.calls[0]
+    expect(callArgs[1].signal).toBeDefined()
+  })
+
+  it('metadataQuery passes AbortSignal to fetch', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        results: {
+          bindings: [{
+            title: { type: 'literal', value: 'Test' },
+          }],
+        },
+      }),
+    })
+    const client = new CellarClient()
+    await client.metadataQuery('32021R0694', 'DEU')
+    const callArgs = mockFetch.mock.calls[0]
+    expect(callArgs[1].signal).toBeDefined()
+  })
+
+  it('citationsQuery passes AbortSignal to fetch', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ results: { bindings: [] } }),
+    })
+    const client = new CellarClient()
+    await client.citationsQuery('32021R0694', 'DEU', 'both', 10)
+    const callArgs = mockFetch.mock.calls[0]
+    expect(callArgs[1].signal).toBeDefined()
+  })
+
+  it('eurovocQuery passes AbortSignal to fetch', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ results: { bindings: [] } }),
+    })
+    const client = new CellarClient()
+    await client.eurovocQuery('environment', 'any', 'DEU', 10)
+    const callArgs = mockFetch.mock.calls[0]
+    expect(callArgs[1].signal).toBeDefined()
+  })
+
+  it('fetchConsolidated passes AbortSignal to fetch', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      text: async () => '<html></html>',
+    })
+    const client = new CellarClient()
+    await client.fetchConsolidated('reg', 2021, 694, 'DEU')
+    const callArgs = mockFetch.mock.calls[0]
+    expect(callArgs[1].signal).toBeDefined()
   })
 })

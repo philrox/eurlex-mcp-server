@@ -1,5 +1,6 @@
 import { consolidatedSchema } from '../schemas/consolidatedSchema.js'
 import { CellarClient } from '../services/cellarClient.js'
+import { processContent, toolError } from '../utils.js'
 import type { ConsolidatedResult } from '../types.js'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
@@ -22,15 +23,7 @@ export async function handleEurlexConsolidated(input: {
       parsed.language
     )
 
-    let content = rawContent
-    if (parsed.format === 'plain') {
-      content = content.replace(/<[^>]*>/g, '')
-    }
-
-    const truncated = content.length > parsed.max_chars
-    if (truncated) {
-      content = content.slice(0, parsed.max_chars)
-    }
+    const { content, truncated, charCount } = processContent(rawContent, parsed.format, parsed.max_chars)
 
     const result: ConsolidatedResult = {
       doc_type: parsed.doc_type,
@@ -39,7 +32,7 @@ export async function handleEurlexConsolidated(input: {
       language: parsed.language,
       content,
       truncated,
-      char_count: content.length,
+      char_count: charCount,
       eli_url: eliUrl,
     }
 
@@ -52,11 +45,7 @@ export async function handleEurlexConsolidated(input: {
       ],
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    return {
-      content: [{ type: 'text' as const, text: `Error: ${message}` }],
-      isError: true,
-    }
+    return toolError(error)
   }
 }
 

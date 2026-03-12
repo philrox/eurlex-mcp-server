@@ -6,6 +6,7 @@ export const DEFAULT_LIMIT = 10
 export const MAX_CHARS_DEFAULT = 20000
 export const MAX_CHARS_LIMIT = 50000
 export const REQUEST_TIMEOUT_MS = 30000
+export const SESSION_TTL_MS = 30 * 60 * 1000
 
 export const RESOURCE_TYPES = [
   'REG', 'REG_IMPL', 'REG_DEL',
