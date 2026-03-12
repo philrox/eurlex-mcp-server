@@ -67,4 +67,22 @@ describe('processContent()', () => {
     expect(result.truncated).toBe(true)
     expect(result.content.length).toBe(50)
   })
+
+  it('returns contentLength equal to actual content length after truncation', () => {
+    const result = processContent('x'.repeat(5000), 'xhtml', 1000)
+    expect(result.contentLength).toBe(1000)
+    expect(result.charCount).toBe(5000)
+  })
+
+  it('returns matching contentLength and charCount when no truncation', () => {
+    const result = processContent('hello world', 'xhtml', 20000)
+    expect(result.contentLength).toBe(11)
+    expect(result.charCount).toBe(11)
+    expect(result.truncated).toBe(false)
+  })
+
+  it('rejects invalid format at type level', () => {
+    // @ts-expect-error — 'pdf' is not assignable to 'plain' | 'xhtml'
+    processContent('<p>test</p>', 'pdf', 1000)
+  })
 })

@@ -29,6 +29,12 @@ const LANGUAGE_ELI_MAP: Record<string, string> = {
   FRA: 'fra',
 };
 
+/** Valid citation relationship types between EU legal acts */
+export const VALID_RELATIONSHIPS = new Set<CitationEntry['relationship']>([
+  'cites', 'cited_by', 'amends', 'amended_by',
+  'based_on', 'basis_for', 'repeals', 'repealed_by',
+]);
+
 /** Shape of a single SPARQL binding value */
 interface SparqlBindingValue {
   type: string;
@@ -427,11 +433,6 @@ export class CellarClient {
     const httpLang = LANGUAGE_HTTP_MAP[language] ?? 'de';
 
     const data = await this.executeSparql<CitationsSparqlResponse>(sparql);
-
-    const VALID_RELATIONSHIPS = new Set<CitationEntry['relationship']>([
-      'cites', 'cited_by', 'amends', 'amended_by',
-      'based_on', 'basis_for', 'repeals', 'repealed_by',
-    ]);
 
     const citations = data.results.bindings.map((b) => {
       const rel = b.rel.value;

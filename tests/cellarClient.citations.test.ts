@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { CellarClient } from '../src/services/cellarClient.js'
+import { CellarClient, VALID_RELATIONSHIPS } from '../src/services/cellarClient.js'
 
 const mockFetch = vi.fn()
 
@@ -110,5 +110,15 @@ describe('citationsQuery()', () => {
 
     expect(result.citations).toEqual([])
     expect(result.total).toBe(0)
+  })
+})
+
+describe('VALID_RELATIONSHIPS', () => {
+  it('is a Set with 8 valid relationship types', () => {
+    expect(VALID_RELATIONSHIPS).toBeInstanceOf(Set)
+    expect(VALID_RELATIONSHIPS.size).toBe(8)
+    for (const rel of ['cites', 'cited_by', 'amends', 'amended_by', 'based_on', 'basis_for', 'repeals', 'repealed_by']) {
+      expect(VALID_RELATIONSHIPS.has(rel as any)).toBe(true)
+    }
   })
 })

@@ -105,6 +105,21 @@ describe('handleEurlexConsolidated()', () => {
     expect(parsed.char_count).toBe(30000)
   })
 
+  it('output includes content_length field with actual content length', async () => {
+    mockFetchConsolidated.mockResolvedValueOnce(mockResult('x'.repeat(5000)))
+    const result = await handleEurlexConsolidated({
+      doc_type: 'reg',
+      year: 2024,
+      number: 1689,
+      language: 'DEU',
+      format: 'xhtml',
+      max_chars: 1000,
+    })
+    const parsed = JSON.parse(result.content[0].text)
+    expect(parsed.content_length).toBe(1000)
+    expect(parsed.char_count).toBe(5000)
+  })
+
   it('CO-TYPE – result satisfies ConsolidatedResult shape', async () => {
     mockFetchConsolidated.mockResolvedValueOnce(mockResult('<html><body>Content</body></html>'))
 
@@ -119,7 +134,7 @@ describe('handleEurlexConsolidated()', () => {
 
     const parsed: ConsolidatedResult = JSON.parse(result.content[0].text)
     const requiredKeys: (keyof ConsolidatedResult)[] = [
-      'doc_type', 'year', 'number', 'language', 'content', 'truncated', 'char_count', 'eli_url',
+      'doc_type', 'year', 'number', 'language', 'content', 'truncated', 'char_count', 'content_length', 'eli_url',
     ]
     for (const key of requiredKeys) {
       expect(parsed).toHaveProperty(key)

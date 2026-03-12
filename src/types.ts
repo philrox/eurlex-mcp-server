@@ -21,6 +21,7 @@ export interface FetchResult {
   content: string
   truncated: boolean
   char_count: number
+  content_length: number
   source_url: string
 }
 
@@ -68,5 +69,6 @@ export interface ConsolidatedResult {
   content: string
   truncated: boolean
   char_count: number
+  content_length: number
   eli_url: string
 }

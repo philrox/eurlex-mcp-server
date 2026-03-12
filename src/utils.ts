@@ -15,12 +15,12 @@ export function toolError(error: unknown) {
 
 export function processContent(
   raw: string,
-  format: string,
+  format: 'plain' | 'xhtml',
   maxChars: number
-): { content: string; truncated: boolean; charCount: number } {
+): { content: string; truncated: boolean; charCount: number; contentLength: number } {
   let content = format === 'plain' ? stripHtml(raw) : raw
   const charCount = content.length
   const truncated = charCount > maxChars
   if (truncated) content = content.slice(0, maxChars)
-  return { content, truncated, charCount }
+  return { content, truncated, charCount, contentLength: content.length }
 }

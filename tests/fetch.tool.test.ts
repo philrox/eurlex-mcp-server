@@ -92,6 +92,19 @@ describe('handleEurlexFetch()', () => {
     expect(result.content[0].text).toMatch(/Error:/)
   })
 
+  it('output includes content_length field with actual content length', async () => {
+    mockFetchDocument.mockResolvedValueOnce('x'.repeat(5000))
+    const result = await handleEurlexFetch({
+      celex_id: '32024R1689',
+      language: 'DEU',
+      format: 'xhtml',
+      max_chars: 1000,
+    })
+    const parsed = JSON.parse(result.content[0].text)
+    expect(parsed.content_length).toBe(1000)
+    expect(parsed.char_count).toBe(5000)
+  })
+
   it('T18c – char_count reports original length when truncated', async () => {
     const longContent = 'x'.repeat(5000)
     mockFetchDocument.mockResolvedValueOnce(longContent)
@@ -154,7 +167,7 @@ describe('handleEurlexFetch()', () => {
 
     const parsed: FetchResult = JSON.parse(result.content[0].text)
     const requiredKeys: (keyof FetchResult)[] = [
-      'celex_id', 'language', 'content', 'truncated', 'char_count', 'source_url',
+      'celex_id', 'language', 'content', 'truncated', 'char_count', 'content_length', 'source_url',
     ]
     for (const key of requiredKeys) {
       expect(parsed).toHaveProperty(key)

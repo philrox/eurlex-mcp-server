@@ -9,7 +9,7 @@ export async function handleEurlexConsolidated(input: {
   year: number
   number: number
   language: string
-  format: string
+  format: 'plain' | 'xhtml'
   max_chars: number
 }) {
   try {
@@ -23,7 +23,7 @@ export async function handleEurlexConsolidated(input: {
       parsed.language
     )
 
-    const { content, truncated, charCount } = processContent(rawContent, parsed.format, parsed.max_chars)
+    const { content, truncated, charCount, contentLength } = processContent(rawContent, parsed.format, parsed.max_chars)
 
     const result: ConsolidatedResult = {
       doc_type: parsed.doc_type,
@@ -33,6 +33,7 @@ export async function handleEurlexConsolidated(input: {
       content,
       truncated,
       char_count: charCount,
+      content_length: contentLength,
       eli_url: eliUrl,
     }
 

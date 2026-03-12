@@ -143,8 +143,6 @@ describe('HTTP transport', () => {
     const firstSeen = srv.lastSeen.get(sessionId)
     expect(firstSeen).toBeDefined()
 
-    await new Promise((r) => setTimeout(r, 10))
-
     // Reuse session
     const res = await fetch(`${srv.baseUrl}/mcp`, {
       method: 'POST',
