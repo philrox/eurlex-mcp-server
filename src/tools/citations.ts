@@ -9,7 +9,7 @@ export async function handleEurlexCitations(input: {
   language: string;
   direction: 'cites' | 'cited_by' | 'both';
   limit: number;
-}) {
+}): Promise<{ content: { type: 'text'; text: string }[]; isError?: true }> {
   try {
     const parsed = citationsSchema.parse(input);
     const client = new CellarClient();
@@ -44,7 +44,7 @@ export async function handleEurlexCitations(input: {
   }
 }
 
-export function registerCitationsTool(server: McpServer) {
+export function registerCitationsTool(server: McpServer): void {
   server.tool(
     'eurlex_citations',
     'Findet Zitierungen, Rechtsgrundlagen und Änderungen eines EU-Rechtsakts',

@@ -4,7 +4,10 @@ import { metadataSchema } from '../schemas/metadataSchema.js';
 import { CellarClient } from '../services/cellarClient.js';
 import { toolError } from '../utils.js';
 
-export async function handleEurlexMetadata(input: { celex_id: string; language: string }) {
+export async function handleEurlexMetadata(input: {
+  celex_id: string;
+  language: string;
+}): Promise<{ content: { type: 'text'; text: string }[]; isError?: true }> {
   try {
     const parsed = metadataSchema.parse(input);
     const client = new CellarClient();
@@ -17,7 +20,7 @@ export async function handleEurlexMetadata(input: { celex_id: string; language: 
   }
 }
 
-export function registerMetadataTool(server: McpServer) {
+export function registerMetadataTool(server: McpServer): void {
   server.tool(
     'eurlex_metadata',
     'Ruft detaillierte Metadaten eines EU-Rechtsakts per CELEX-ID ab (Daten, Autoren, EuroVoc, Directory-Codes)',

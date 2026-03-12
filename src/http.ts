@@ -74,14 +74,14 @@ export function createApp(): {
     }
 
     const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => randomUUID(),
-      onsessioninitialized: (sid) => {
+      sessionIdGenerator: (): string => randomUUID(),
+      onsessioninitialized: (sid: string): void => {
         transports.set(sid, transport);
         lastSeen.set(sid, Date.now());
       },
     });
 
-    transport.onclose = () => {
+    transport.onclose = (): void => {
       const sid = transport.sessionId;
       if (sid) {
         transports.delete(sid);

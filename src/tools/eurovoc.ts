@@ -9,7 +9,7 @@ export async function handleEurlexByEurovoc(input: {
   resource_type: string;
   language: string;
   limit: number;
-}) {
+}): Promise<{ content: { type: 'text'; text: string }[]; isError?: true }> {
   try {
     const parsed = eurovocSchema.parse(input);
     const client = new CellarClient();
@@ -44,7 +44,7 @@ export async function handleEurlexByEurovoc(input: {
   }
 }
 
-export function registerEurovocTool(server: McpServer) {
+export function registerEurovocTool(server: McpServer): void {
   server.tool(
     'eurlex_by_eurovoc',
     'Sucht EU-Rechtsakte nach EuroVoc-Thema (z.B. "artificial intelligence", "data protection")',

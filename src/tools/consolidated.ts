@@ -12,7 +12,7 @@ export async function handleEurlexConsolidated(input: {
   language: string;
   format: 'plain' | 'xhtml';
   max_chars: number;
-}) {
+}): Promise<{ content: { type: 'text'; text: string }[]; isError?: true }> {
   try {
     const parsed = consolidatedSchema.parse(input);
 
@@ -54,7 +54,7 @@ export async function handleEurlexConsolidated(input: {
   }
 }
 
-export function registerConsolidatedTool(server: McpServer) {
+export function registerConsolidatedTool(server: McpServer): void {
   server.tool(
     'eurlex_consolidated',
     'Ruft die konsolidierte (aktuell gültige) Fassung eines EU-Rechtsakts ab via ELI',

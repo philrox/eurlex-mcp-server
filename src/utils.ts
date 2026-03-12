@@ -5,7 +5,10 @@ export function stripHtml(content: string): string {
     .replace(/<[^>]*>/g, '');
 }
 
-export function toolError(error: unknown) {
+export function toolError(error: unknown): {
+  content: { type: 'text'; text: string }[];
+  isError: true;
+} {
   const message = error instanceof Error ? error.message : String(error);
   return {
     content: [{ type: 'text' as const, text: `Error: ${message}` }],

@@ -11,7 +11,7 @@ export async function handleEurlexSearch(input: {
   limit: number;
   date_from?: string;
   date_to?: string;
-}) {
+}): Promise<{ content: { type: 'text'; text: string }[]; isError?: true }> {
   try {
     const client = new CellarClient();
     const { results, sparql } = await client.sparqlQuery(input.query, {
@@ -41,7 +41,7 @@ export async function handleEurlexSearch(input: {
   }
 }
 
-export function registerSearchTool(server: McpServer) {
+export function registerSearchTool(server: McpServer): void {
   server.tool(
     'eurlex_search',
     'Sucht EU-Rechtsakte nach Titel via EUR-Lex SPARQL',

@@ -9,7 +9,7 @@ export async function handleEurlexFetch(input: {
   language: string;
   format: 'plain' | 'xhtml';
   max_chars: number;
-}) {
+}): Promise<{ content: { type: 'text'; text: string }[]; isError?: true }> {
   try {
     const parsed = fetchSchema.parse(input);
 
@@ -37,7 +37,7 @@ export async function handleEurlexFetch(input: {
   }
 }
 
-export function registerFetchTool(server: McpServer) {
+export function registerFetchTool(server: McpServer): void {
   server.tool(
     'eurlex_fetch',
     'Ruft Volltext eines EU-Rechtsakts per CELEX-ID ab',
