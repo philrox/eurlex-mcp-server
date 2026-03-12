@@ -15,7 +15,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -23,7 +23,7 @@ jobs:
         uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
@@ -37,61 +37,10 @@ jobs:
       - name: Build
         run: pnpm run build
 
-      - name: Generate release notes
-        id: notes
-        run: |
-          PREV_TAG=$(git tag --sort=-version:refname | head -2 | tail -1)
-          CURRENT_TAG=${GITHUB_REF#refs/tags/}
-
-          if [ "$PREV_TAG" = "$CURRENT_TAG" ]; then
-            COMMITS=$(git log --oneline --no-merges "$CURRENT_TAG")
-          else
-            COMMITS=$(git log --oneline --no-merges "$PREV_TAG..$CURRENT_TAG")
-          fi
-
-          FEATURES=$(echo "$COMMITS" | grep -E '^\w+ feat(\(.+\))?:' | sed 's/^\w\+ feat\(([^)]*)\)\?:\s*//' || true)
-          FIXES=$(echo "$COMMITS" | grep -E '^\w+ fix(\(.+\))?:' | sed 's/^\w\+ fix\(([^)]*)\)\?:\s*//' || true)
-          DOCS=$(echo "$COMMITS" | grep -E '^\w+ docs(\(.+\))?:' | sed 's/^\w\+ docs\(([^)]*)\)\?:\s*//' || true)
-          CI_CHORE=$(echo "$COMMITS" | grep -E '^\w+ (ci|chore|refactor|test)(\(.+\))?:' | sed 's/^\w\+ \w\+\(([^)]*)\)\?:\s*//' || true)
-
-          NOTES="## What's Changed"$'\n'
-
-          if [ -n "$FEATURES" ]; then
-            NOTES+=$'\n'"### Features"$'\n'
-            while IFS= read -r line; do
-              NOTES+="- $line"$'\n'
-            done <<< "$FEATURES"
-          fi
-
-          if [ -n "$FIXES" ]; then
-            NOTES+=$'\n'"### Bug Fixes"$'\n'
-            while IFS= read -r line; do
-              NOTES+="- $line"$'\n'
-            done <<< "$FIXES"
-          fi
-
-          if [ -n "$DOCS" ]; then
-            NOTES+=$'\n'"### Documentation"$'\n'
-            while IFS= read -r line; do
-              NOTES+="- $line"$'\n'
-            done <<< "$DOCS"
-          fi
-
-          if [ -n "$CI_CHORE" ]; then
-            NOTES+=$'\n'"### Other"$'\n'
-            while IFS= read -r line; do
-              NOTES+="- $line"$'\n'
-            done <<< "$CI_CHORE"
-          fi
-
-          NOTES+=$'\n'"**Full Changelog**: https://github.com/${{ github.repository }}/compare/$PREV_TAG...$CURRENT_TAG"
-
-          echo "$NOTES" > release-notes.md
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          body_path: release-notes.md
+          generate_release_notes: true
 
       - name: Publish to npm
         run: pnpm publish --provenance --access public --no-git-checks
@@ -107,10 +56,10 @@ jobs:
       SERVICE_NAME: eurlex-mcp
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -133,6 +82,10 @@ jobs:
       - name: Deploy
         run: |
           IMAGE=$(grep -oP '":[\\w.-]+"' push-output.txt | tr -d '"')
+          if [ -z "$IMAGE" ]; then
+            echo "Failed to parse image name from push output"
+            exit 1
+          fi
           aws lightsail create-container-service-deployment \
             --service-name $SERVICE_NAME \
             --region $AWS_REGION \
