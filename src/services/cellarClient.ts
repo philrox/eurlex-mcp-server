@@ -6,8 +6,13 @@ import {
   DEFAULT_LIMIT,
   REQUEST_TIMEOUT_MS,
 } from '../constants.js';
-import type { SparqlQueryParams, SearchResult, MetadataResult, CitationsResult, CitationEntry } from '../types.js';
-
+import type {
+  SparqlQueryParams,
+  SearchResult,
+  MetadataResult,
+  CitationsResult,
+  CitationEntry,
+} from '../types.js';
 
 /** Maps 3-letter language codes to CDM expression language URI suffixes */
 const LANGUAGE_URI_MAP: Record<string, string> = {
@@ -24,7 +29,7 @@ const LANGUAGE_HTTP_MAP: Record<string, string> = {
 };
 
 /** Maps 3-letter language codes to ELI URL language codes (ISO 639-3) */
-const LANGUAGE_ELI_MAP: Record<string, string> = {
+const _LANGUAGE_ELI_MAP: Record<string, string> = {
   DEU: 'deu',
   ENG: 'eng',
   FRA: 'fra',
@@ -32,8 +37,14 @@ const LANGUAGE_ELI_MAP: Record<string, string> = {
 
 /** Valid citation relationship types between EU legal acts */
 export const VALID_RELATIONSHIPS = new Set<CitationEntry['relationship']>([
-  'cites', 'cited_by', 'amends', 'amended_by',
-  'based_on', 'basis_for', 'repeals', 'repealed_by',
+  'cites',
+  'cited_by',
+  'amends',
+  'amended_by',
+  'based_on',
+  'basis_for',
+  'repeals',
+  'repealed_by',
 ]);
 
 /** Shape of a single SPARQL binding value */
@@ -45,7 +56,7 @@ interface SparqlBindingValue {
 /** Shape of the metadata SPARQL JSON results */
 interface MetadataSparqlResponse {
   results: {
-    bindings: Array<{
+    bindings: {
       title?: SparqlBindingValue;
       dateDoc?: SparqlBindingValue;
       dateForce?: SparqlBindingValue;
@@ -56,33 +67,33 @@ interface MetadataSparqlResponse {
       authors?: SparqlBindingValue;
       eurovoc?: SparqlBindingValue;
       dirCodes?: SparqlBindingValue;
-    }>;
+    }[];
   };
 }
 
 /** Shape of the citations SPARQL JSON results */
 interface CitationsSparqlResponse {
   results: {
-    bindings: Array<{
+    bindings: {
       celex: SparqlBindingValue;
       title: SparqlBindingValue;
       date?: SparqlBindingValue;
       resType: SparqlBindingValue;
       rel: SparqlBindingValue;
-    }>;
+    }[];
   };
 }
 
 /** Shape of the SPARQL JSON results */
 interface SparqlResponse {
   results: {
-    bindings: Array<{
+    bindings: {
       work: SparqlBindingValue;
       celex: SparqlBindingValue;
       title: SparqlBindingValue;
       date?: SparqlBindingValue;
       resType: SparqlBindingValue;
-    }>;
+    }[];
   };
 }
 
@@ -129,48 +140,38 @@ export class CellarClient {
     // Resource type filter
     if (params.resource_type !== 'any') {
       whereLines.push(
-        `    ?work cdm:work_has_resource-type <http://publications.europa.eu/resource/authority/resource-type/${params.resource_type}> .`
+        `    ?work cdm:work_has_resource-type <http://publications.europa.eu/resource/authority/resource-type/${params.resource_type}> .`,
       );
     }
 
     // Always bind the resource type
     whereLines.push(
       '    ?work cdm:work_has_resource-type ?resTypeUri .',
-      '    BIND(REPLACE(STR(?resTypeUri), "^.*/", "") AS ?resType)'
+      '    BIND(REPLACE(STR(?resTypeUri), "^.*/", "") AS ?resType)',
     );
 
     // CELEX identifier
-    whereLines.push(
-      '    ?work cdm:resource_legal_id_celex ?celex .'
-    );
+    whereLines.push('    ?work cdm:resource_legal_id_celex ?celex .');
 
     // Expression and title (REQUIRED, not optional)
     whereLines.push(
       `    ?expr cdm:expression_belongs_to_work ?work .`,
       `    ?expr cdm:expression_uses_language <http://publications.europa.eu/resource/authority/language/${lang}> .`,
-      `    ?expr cdm:expression_title ?title .`
+      `    ?expr cdm:expression_title ?title .`,
     );
 
     // Date is OPTIONAL
-    whereLines.push(
-      '    OPTIONAL { ?work cdm:work_date_document ?date . }'
-    );
+    whereLines.push('    OPTIONAL { ?work cdm:work_date_document ?date . }');
 
     // Search filter on title
-    whereLines.push(
-      `    FILTER(CONTAINS(LCASE(STR(?title)), LCASE("${escaped}")))`
-    );
+    whereLines.push(`    FILTER(CONTAINS(LCASE(STR(?title)), LCASE("${escaped}")))`);
 
     // Date filters
     if (params.date_from) {
-      whereLines.push(
-        `    FILTER(?date >= "${params.date_from}"^^xsd:date)`
-      );
+      whereLines.push(`    FILTER(?date >= "${params.date_from}"^^xsd:date)`);
     }
     if (params.date_to) {
-      whereLines.push(
-        `    FILTER(?date <= "${params.date_to}"^^xsd:date)`
-      );
+      whereLines.push(`    FILTER(?date <= "${params.date_to}"^^xsd:date)`);
     }
 
     const query = [
@@ -193,7 +194,7 @@ export class CellarClient {
    */
   async sparqlQuery(
     query: string,
-    params?: Partial<SparqlQueryParams>
+    params?: Partial<SparqlQueryParams>,
   ): Promise<{ results: SearchResult[]; sparql: string }> {
     const fullParams: SparqlQueryParams = {
       query,
@@ -222,7 +223,7 @@ export class CellarClient {
 
     // Deduplicate by CELEX ID (same document can have multiple resource types)
     const seen = new Set<string>();
-    const deduped = results.filter(r => {
+    const deduped = results.filter((r) => {
       if (seen.has(r.celex)) return false;
       seen.add(r.celex);
       return true;
@@ -250,11 +251,15 @@ export class CellarClient {
     });
 
     if (response.status === 404) {
-      throw new Error(`Document not found: ${celex_id}. The document may not be available in electronic full-text format on EUR-Lex.`);
+      throw new Error(
+        `Document not found: ${celex_id}. The document may not be available in electronic full-text format on EUR-Lex.`,
+      );
     }
 
     if (response.status === 406) {
-      throw new Error(`Document ${celex_id} is not available in XHTML format. Older documents may only exist as PDF on EUR-Lex.`);
+      throw new Error(
+        `Document ${celex_id} is not available in XHTML format. Older documents may only exist as PDF on EUR-Lex.`,
+      );
     }
 
     if (!response.ok) {
@@ -363,7 +368,7 @@ export class CellarClient {
     celexId: string,
     language: string,
     direction: 'cites' | 'cited_by' | 'both',
-    limit: number
+    limit: number,
   ): string {
     const lang = LANGUAGE_URI_MAP[language] ?? language;
     const escaped = escapeSparqlString(celexId);
@@ -440,7 +445,7 @@ export class CellarClient {
     celexId: string,
     language: string,
     direction: 'cites' | 'cited_by' | 'both',
-    limit: number
+    limit: number,
   ): Promise<CitationsResult> {
     const sparql = this.buildCitationsQuery(celexId, language, direction, limit);
     const httpLang = LANGUAGE_HTTP_MAP[language] ?? 'de';
@@ -486,7 +491,9 @@ export class CellarClient {
     ].join('\n');
 
     try {
-      const data = await this.executeSparql<{ results: { bindings: Array<{ concept: { value: string } }> } }>(sparql);
+      const data = await this.executeSparql<{
+        results: { bindings: { concept: { value: string } }[] };
+      }>(sparql);
       const bindings = data.results.bindings;
       return bindings.length > 0 ? bindings[0].concept.value : null;
     } catch {
@@ -504,13 +511,15 @@ export class CellarClient {
     conceptUri: string,
     resourceType: string,
     language: string,
-    limit: number
+    limit: number,
   ): string {
     const lang = LANGUAGE_URI_MAP[language] ?? language;
 
     // Only accept URIs
     if (!conceptUri.startsWith('http')) {
-      throw new Error(`Invalid concept: expected a URI starting with http, got "${conceptUri}". Use resolveEurovocLabel() first.`);
+      throw new Error(
+        `Invalid concept: expected a URI starting with http, got "${conceptUri}". Use resolveEurovocLabel() first.`,
+      );
     }
 
     // Reject angle brackets — they can break SPARQL IRI syntax
@@ -524,9 +533,10 @@ export class CellarClient {
 
     const conceptFilter = `  ?work cdm:work_is_about_concept_eurovoc <${conceptUri}> .`;
 
-    const typeFilter = resourceType !== 'any'
-      ? `  ?work cdm:work_has_resource-type <http://publications.europa.eu/resource/authority/resource-type/${resourceType}> .`
-      : '';
+    const typeFilter =
+      resourceType !== 'any'
+        ? `  ?work cdm:work_has_resource-type <http://publications.europa.eu/resource/authority/resource-type/${resourceType}> .`
+        : '';
 
     return [
       'PREFIX cdm: <http://publications.europa.eu/ontology/cdm#>',
@@ -558,7 +568,7 @@ export class CellarClient {
     concept: string,
     resourceType: string,
     language: string,
-    limit: number
+    limit: number,
   ): Promise<SearchResult[]> {
     const isUri = concept.startsWith('http');
     let conceptUri: string;
@@ -591,15 +601,19 @@ export class CellarClient {
     reg: 'R',
     dir: 'L',
     dec: 'D',
-  }
+  };
 
   /**
    * Finds the consolidated CELEX ID for a given document via SPARQL.
    * Consolidated CELEX IDs have prefix 0, e.g. 02024R1689-20240712.
    */
-  async findConsolidatedCelex(docType: string, year: number, number: number): Promise<string | null> {
-    const typeLetter = CellarClient.DOC_TYPE_CELEX_MAP[docType] ?? 'R'
-    const celexPrefix = `0${year}${typeLetter}${String(number).padStart(4, '0')}`
+  async findConsolidatedCelex(
+    docType: string,
+    year: number,
+    number: number,
+  ): Promise<string | null> {
+    const typeLetter = CellarClient.DOC_TYPE_CELEX_MAP[docType] ?? 'R';
+    const celexPrefix = `0${year}${typeLetter}${String(number).padStart(4, '0')}`;
 
     const sparql = [
       'PREFIX cdm: <http://publications.europa.eu/ontology/cdm#>',
@@ -609,10 +623,12 @@ export class CellarClient {
       `}`,
       `ORDER BY DESC(?celex)`,
       `LIMIT 1`,
-    ].join('\n')
+    ].join('\n');
 
-    const data = await this.executeSparql<{ results: { bindings: Array<{ celex: { value: string } }> } }>(sparql)
-    return data.results.bindings.length > 0 ? data.results.bindings[0].celex.value : null
+    const data = await this.executeSparql<{
+      results: { bindings: { celex: { value: string } }[] };
+    }>(sparql);
+    return data.results.bindings.length > 0 ? data.results.bindings[0].celex.value : null;
   }
 
   /**
@@ -624,21 +640,21 @@ export class CellarClient {
     docType: string,
     year: number,
     number: number,
-    language: string
+    language: string,
   ): Promise<{ content: string; eliUrl: string }> {
     // Step 1: Find consolidated CELEX ID
-    const consolidatedCelex = await this.findConsolidatedCelex(docType, year, number)
+    const consolidatedCelex = await this.findConsolidatedCelex(docType, year, number);
 
     if (!consolidatedCelex) {
       throw new Error(
         `Keine konsolidierte Fassung für ${docType}/${year}/${number} verfügbar. ` +
-        `Verwenden Sie eurlex_fetch mit der CELEX-ID für die Original-OJ-Version.`
-      )
+          `Verwenden Sie eurlex_fetch mit der CELEX-ID für die Original-OJ-Version.`,
+      );
     }
 
     // Step 2: Fetch from Cellar REST (same as fetchDocument)
-    const httpLang = LANGUAGE_HTTP_MAP[language] ?? 'de'
-    const url = `${CELLAR_REST_BASE}/${consolidatedCelex}`
+    const httpLang = LANGUAGE_HTTP_MAP[language] ?? 'de';
+    const url = `${CELLAR_REST_BASE}/${consolidatedCelex}`;
 
     const response = await fetch(url, {
       method: 'GET',
@@ -648,20 +664,22 @@ export class CellarClient {
       },
       redirect: 'follow',
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    })
+    });
 
     if (response.status === 404) {
       throw new Error(
         `Keine konsolidierte Fassung für ${docType}/${year}/${number} verfügbar (${consolidatedCelex} nicht abrufbar). ` +
-        `Verwenden Sie eurlex_fetch mit der CELEX-ID für die Original-OJ-Version.`
-      )
+          `Verwenden Sie eurlex_fetch mit der CELEX-ID für die Original-OJ-Version.`,
+      );
     }
 
     if (!response.ok) {
-      throw new Error(`Consolidated document error: ${docType}/${year}/${number} (HTTP ${response.status})`)
+      throw new Error(
+        `Consolidated document error: ${docType}/${year}/${number} (HTTP ${response.status})`,
+      );
     }
 
-    const eliUrl = `http://data.europa.eu/eli/${docType}/${year}/${number}`
-    return { content: await response.text(), eliUrl }
+    const eliUrl = `http://data.europa.eu/eli/${docType}/${year}/${number}`;
+    return { content: await response.text(), eliUrl };
   }
 }

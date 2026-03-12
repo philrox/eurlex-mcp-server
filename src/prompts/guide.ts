@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 const GUIDE_TEXT = `# EUR-Lex Recherche-Guide
 
@@ -74,12 +74,12 @@ EuroVoc-Labels sind sprachabhängig — passende Sprache zum language-Parameter 
 - Konsolidierte Fassungen existieren nicht für alle Rechtsakte`;
 
 export function registerGuidePrompt(server: McpServer): void {
-  server.prompt("eurlex_guide", {}, () => ({
+  server.prompt('eurlex_guide', {}, () => ({
     messages: [
       {
-        role: "user" as const,
+        role: 'user' as const,
         content: {
-          type: "text" as const,
+          type: 'text' as const,
           text: GUIDE_TEXT,
         },
       },

@@ -1,29 +1,34 @@
-import { consolidatedSchema } from '../schemas/consolidatedSchema.js'
-import { CellarClient } from '../services/cellarClient.js'
-import { processContent, toolError } from '../utils.js'
-import type { ConsolidatedResult } from '../types.js'
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+
+import { consolidatedSchema } from '../schemas/consolidatedSchema.js';
+import { CellarClient } from '../services/cellarClient.js';
+import type { ConsolidatedResult } from '../types.js';
+import { processContent, toolError } from '../utils.js';
 
 export async function handleEurlexConsolidated(input: {
-  doc_type: string
-  year: number
-  number: number
-  language: string
-  format: 'plain' | 'xhtml'
-  max_chars: number
+  doc_type: string;
+  year: number;
+  number: number;
+  language: string;
+  format: 'plain' | 'xhtml';
+  max_chars: number;
 }) {
   try {
-    const parsed = consolidatedSchema.parse(input)
+    const parsed = consolidatedSchema.parse(input);
 
-    const client = new CellarClient()
+    const client = new CellarClient();
     const { content: rawContent, eliUrl } = await client.fetchConsolidated(
       parsed.doc_type,
       parsed.year,
       parsed.number,
-      parsed.language
-    )
+      parsed.language,
+    );
 
-    const { content, truncated, charCount } = processContent(rawContent, parsed.format, parsed.max_chars)
+    const { content, truncated, charCount } = processContent(
+      rawContent,
+      parsed.format,
+      parsed.max_chars,
+    );
 
     const result: ConsolidatedResult = {
       doc_type: parsed.doc_type,
@@ -34,7 +39,7 @@ export async function handleEurlexConsolidated(input: {
       truncated,
       char_count: charCount,
       eli_url: eliUrl,
-    }
+    };
 
     return {
       content: [
@@ -43,9 +48,9 @@ export async function handleEurlexConsolidated(input: {
           text: JSON.stringify(result),
         },
       ],
-    }
+    };
   } catch (error) {
-    return toolError(error)
+    return toolError(error);
   }
 }
 
@@ -55,6 +60,6 @@ export function registerConsolidatedTool(server: McpServer) {
     'Ruft die konsolidierte (aktuell gültige) Fassung eines EU-Rechtsakts ab via ELI',
     consolidatedSchema.shape,
     { readOnlyHint: true, destructiveHint: false },
-    async (params) => handleEurlexConsolidated(params)
-  )
+    async (params) => handleEurlexConsolidated(params),
+  );
 }

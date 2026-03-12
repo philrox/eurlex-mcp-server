@@ -1,20 +1,21 @@
-import { fetchSchema } from '../schemas/fetchSchema.js'
-import { CellarClient } from '../services/cellarClient.js'
-import { processContent, toolError } from '../utils.js'
-import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+
+import { fetchSchema } from '../schemas/fetchSchema.js';
+import { CellarClient } from '../services/cellarClient.js';
+import { processContent, toolError } from '../utils.js';
 
 export async function handleEurlexFetch(input: {
-  celex_id: string
-  language: string
-  format: 'plain' | 'xhtml'
-  max_chars: number
+  celex_id: string;
+  language: string;
+  format: 'plain' | 'xhtml';
+  max_chars: number;
 }) {
   try {
-    const parsed = fetchSchema.parse(input)
+    const parsed = fetchSchema.parse(input);
 
-    const client = new CellarClient()
-    const raw = await client.fetchDocument(parsed.celex_id, parsed.language)
-    const { content, truncated, charCount } = processContent(raw, parsed.format, parsed.max_chars)
+    const client = new CellarClient();
+    const raw = await client.fetchDocument(parsed.celex_id, parsed.language);
+    const { content, truncated, charCount } = processContent(raw, parsed.format, parsed.max_chars);
 
     return {
       content: [
@@ -30,9 +31,9 @@ export async function handleEurlexFetch(input: {
           }),
         },
       ],
-    }
+    };
   } catch (error) {
-    return toolError(error)
+    return toolError(error);
   }
 }
 
@@ -42,6 +43,6 @@ export function registerFetchTool(server: McpServer) {
     'Ruft Volltext eines EU-Rechtsakts per CELEX-ID ab',
     fetchSchema.shape,
     { readOnlyHint: true, destructiveHint: false },
-    async (params) => handleEurlexFetch(params)
-  )
+    async (params) => handleEurlexFetch(params),
+  );
 }

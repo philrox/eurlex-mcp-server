@@ -1,40 +1,43 @@
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
-import { CellarClient } from '../services/cellarClient.js'
-import { searchSchema } from '../schemas/searchSchema.js'
-import { toolError } from '../utils.js'
+import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+
+import { searchSchema } from '../schemas/searchSchema.js';
+import { CellarClient } from '../services/cellarClient.js';
+import { toolError } from '../utils.js';
 
 export async function handleEurlexSearch(input: {
-  query: string
-  resource_type: string
-  language: string
-  limit: number
-  date_from?: string
-  date_to?: string
+  query: string;
+  resource_type: string;
+  language: string;
+  limit: number;
+  date_from?: string;
+  date_to?: string;
 }) {
   try {
-    const client = new CellarClient()
+    const client = new CellarClient();
     const { results, sparql } = await client.sparqlQuery(input.query, {
       resource_type: input.resource_type,
       language: input.language,
       limit: input.limit,
       date_from: input.date_from,
       date_to: input.date_to,
-    })
+    });
 
     if (results.length === 0) {
       return {
         content: [{ type: 'text' as const, text: `Keine Ergebnisse für "${input.query}"` }],
-      }
+      };
     }
 
     return {
-      content: [{
-        type: 'text' as const,
-        text: JSON.stringify({ results, total: results.length, query_used: sparql }),
-      }],
-    }
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify({ results, total: results.length, query_used: sparql }),
+        },
+      ],
+    };
   } catch (error) {
-    return toolError(error)
+    return toolError(error);
   }
 }
 
@@ -44,6 +47,6 @@ export function registerSearchTool(server: McpServer) {
     'Sucht EU-Rechtsakte nach Titel via EUR-Lex SPARQL',
     searchSchema.shape,
     { readOnlyHint: true, destructiveHint: false },
-    async (params) => handleEurlexSearch(params)
-  )
+    async (params) => handleEurlexSearch(params),
+  );
 }
