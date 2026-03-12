@@ -10,6 +10,9 @@ dist/
 build/
 *.egg-info/
 
+# Coverage
+coverage/
+
 # Environment
 .env
 .env.local

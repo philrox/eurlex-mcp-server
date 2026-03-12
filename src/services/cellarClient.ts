@@ -28,13 +28,6 @@ const LANGUAGE_HTTP_MAP: Record<string, string> = {
   FRA: 'fr',
 };
 
-/** Maps 3-letter language codes to ELI URL language codes (ISO 639-3) */
-const _LANGUAGE_ELI_MAP: Record<string, string> = {
-  DEU: 'deu',
-  ENG: 'eng',
-  FRA: 'fra',
-};
-
 /** Valid citation relationship types between EU legal acts */
 export const VALID_RELATIONSHIPS = new Set<CitationEntry['relationship']>([
   'cites',
