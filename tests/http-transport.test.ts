@@ -1,6 +1,6 @@
 import { describe, test, expect, afterEach } from 'vitest'
 import http from 'node:http'
-import { createApp } from '../src/index.js'
+import { createApp } from '../src/http.js'
 
 /** Start Express app on a random port, return base URL + close fn + internals */
 function startServer() {
@@ -71,7 +71,7 @@ describe('HTTP transport', () => {
 
     const res = await fetch(`${srv.baseUrl}/health`)
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ status: 'ok', server: 'eurlex-mcp-server' })
+    expect(await res.json()).toEqual({ status: 'ok', service: 'eurlex-mcp-server', activeSessions: 0 })
   })
 
   // --- POST /mcp errors ---

@@ -55,7 +55,7 @@ beforeEach(() => {
 // ===========================================================================
 describe('createServer()', () => {
   it('S1 – createServer returns an McpServer instance', async () => {
-    const { createServer } = await import('../src/index.js')
+    const { createServer } = await import('../src/server.js')
     const server = createServer()
 
     expect(server).toBeDefined()
@@ -64,7 +64,7 @@ describe('createServer()', () => {
 
   it('S2 – createServer calls registerSearchTool', async () => {
     const { registerSearchTool } = await import('../src/tools/search.js')
-    const { createServer } = await import('../src/index.js')
+    const { createServer } = await import('../src/server.js')
 
     createServer()
 
@@ -73,7 +73,7 @@ describe('createServer()', () => {
 
   it('S3 – createServer calls registerFetchTool', async () => {
     const { registerFetchTool } = await import('../src/tools/fetch.js')
-    const { createServer } = await import('../src/index.js')
+    const { createServer } = await import('../src/server.js')
 
     createServer()
 
@@ -82,7 +82,7 @@ describe('createServer()', () => {
 
   it('S4 – createServer calls registerGuidePrompt', async () => {
     const { registerGuidePrompt } = await import('../src/prompts/guide.js')
-    const { createServer } = await import('../src/index.js')
+    const { createServer } = await import('../src/server.js')
 
     createServer()
 
@@ -91,7 +91,7 @@ describe('createServer()', () => {
 
   it('S5 – createServer calls registerMetadataTool', async () => {
     const { registerMetadataTool } = await import('../src/tools/metadata.js')
-    const { createServer } = await import('../src/index.js')
+    const { createServer } = await import('../src/server.js')
 
     createServer()
 
@@ -100,7 +100,7 @@ describe('createServer()', () => {
 
   it('S6 – createServer calls registerCitationsTool', async () => {
     const { registerCitationsTool } = await import('../src/tools/citations.js')
-    const { createServer } = await import('../src/index.js')
+    const { createServer } = await import('../src/server.js')
 
     createServer()
 
@@ -109,7 +109,7 @@ describe('createServer()', () => {
 
   it('S7 – createServer calls registerEurovocTool', async () => {
     const { registerEurovocTool } = await import('../src/tools/eurovoc.js')
-    const { createServer } = await import('../src/index.js')
+    const { createServer } = await import('../src/server.js')
 
     createServer()
 
@@ -118,7 +118,7 @@ describe('createServer()', () => {
 
   it('S8 – createServer calls registerConsolidatedTool', async () => {
     const { registerConsolidatedTool } = await import('../src/tools/consolidated.js')
-    const { createServer } = await import('../src/index.js')
+    const { createServer } = await import('../src/server.js')
 
     createServer()
 
