@@ -1,175 +1,259 @@
 # eurlex-mcp-server
 
-Standalone MCP-Server für EU-Recht via EUR-Lex Cellar API.
+[![CI](https://github.com/philrox/eurlex-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/philrox/eurlex-mcp-server/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/eurlex-mcp-server)](https://www.npmjs.com/package/eurlex-mcp-server)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-≥20-green)](https://nodejs.org/)
+[![MCP](https://img.shields.io/badge/MCP-1.0-blue)](https://modelcontextprotocol.io/)
 
-Durchsucht und liefert EU-Rechtsakte (AI Act, DSGVO, NIS2, etc.) die nicht im österreichischen RIS enthalten sind.
+**Search and retrieve EU law via the EUR-Lex Cellar API** -- an MCP server that gives AI assistants direct access to EU regulations, directives, court decisions, and more. No API key required.
 
-## Tools
+## What You Can Do
 
-### `eurlex_search`
+Ask your AI assistant questions like:
 
-Sucht EU-Rechtsakte nach Titel via SPARQL.
+- _"Find EU regulations about artificial intelligence from 2024"_
+- _"Show me the full text of the AI Act (32024R1689)"_
+- _"What EuroVoc topics are assigned to the GDPR?"_
+- _"Which documents cite the Digital Services Act?"_
+- _"Search for directives about renewable energy"_
+- _"Get the consolidated version of Regulation 2016/679 (GDPR)"_
 
-| Parameter | Typ | Default | Beschreibung |
-|---|---|---|---|
-| `query` | string (3-500) | — | Suchbegriff, z.B. "künstliche Intelligenz" |
-| `resource_type` | `REG` \| `DIR` \| `DEC` \| `JUDG` \| `any` | `any` | Dokumenttyp |
-| `language` | `DEU` \| `ENG` \| `FRA` | `DEU` | Sprache für Titel |
-| `limit` | 1-50 | 10 | Max. Ergebnisse |
-| `date_from` | YYYY-MM-DD | — | Filter ab Datum |
-| `date_to` | YYYY-MM-DD | — | Filter bis Datum |
+## Features
 
-### `eurlex_fetch`
+- **6 specialized tools** for searching, fetching, and analyzing EU legal documents
+- **EuroVoc thesaurus search** -- find documents by EU taxonomy concepts
+- **Consolidated versions** -- retrieve the latest in-force text of regulations, directives, and decisions
+- **Citation graph** -- explore which documents cite or are cited by a given act
+- **Structured metadata** -- access dates, EuroVoc descriptors, legal basis, and more
+- **Multi-language** -- supports English, German, and French
+- **No API key required** -- uses the public EUR-Lex Cellar SPARQL endpoint
 
-Ruft Volltext eines EU-Rechtsakts per CELEX-ID ab.
-
-| Parameter | Typ | Default | Beschreibung |
-|---|---|---|---|
-| `celex_id` | string | — | CELEX-Identifier, z.B. `32024R1689` |
-| `language` | `DEU` \| `ENG` \| `FRA` | `DEU` | Sprache des Volltexts |
-| `format` | `xhtml` \| `plain` | `xhtml` | Ausgabeformat |
-| `max_chars` | 1000-50000 | 20000 | Max. Zeichenanzahl |
-
-### `eurlex_guide` (Prompt)
-
-On-demand Recherche-Guide mit CELEX-Schema, Suchstrategien und bekannten IDs. Wird vom Agent nur bei Bedarf abgerufen.
-
-## CELEX-Nummern-Schema
-
-CELEX-IDs identifizieren EU-Rechtsakte eindeutig:
-
-```
-3    2024   R      1689
-│    │      │      │
-│    │      │      └── Dokumentnummer
-│    │      └── Typ: R=Verordnung, L=Richtlinie, D=Entscheidung
-│    └── Jahr
-└── Sektor 3 = Sekundärrecht EU
-```
-
-**Wichtige Rechtsakte:**
-
-| Rechtsakt | CELEX-ID |
-|---|---|
-| AI Act | `32024R1689` |
-| DSGVO | `32016R0679` |
-| NIS2-Richtlinie | `32022L2555` |
-| Digital Services Act | `32022R2065` |
-| Digital Markets Act | `32022R1925` |
-| Data Act | `32023R2854` |
-| Data Governance Act | `32022R0868` |
-
-## Setup
+## Quick Start
 
 ```bash
-pnpm install
-pnpm run build
+pnpm dlx eurlex-mcp-server
 ```
 
-## Starten
-
-**Stdio (Standard, für Claude Code / lokale MCP-Clients):**
+Or with npx:
 
 ```bash
-pnpm start
+npx -y eurlex-mcp-server
 ```
 
-**HTTP (für Remote-Deployment):**
+## Configuration
 
-```bash
-TRANSPORT=http PORT=3001 pnpm start
-```
+### Claude Desktop
 
-Endpoints:
-- `POST /mcp` — MCP-Protokoll (Session-Init oder bestehende Session)
-- `GET /mcp` — SSE auf bestehender Session
-- `DELETE /mcp` — Session beenden
-- `GET /health` — Health-Check
-
-## Konfiguration
-
-| Variable | Default | Beschreibung |
-|---|---|---|
-| `TRANSPORT` | `stdio` | `stdio` oder `http` |
-| `PORT` | `3001` | HTTP-Port (nur bei `TRANSPORT=http`) |
-
-### Claude Code
+Add to your `claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "eurlex": {
-      "command": "node",
-      "args": ["dist/index.js"],
-      "cwd": "/pfad/zu/eurlex-mcp-server"
+      "command": "npx",
+      "args": ["-y", "eurlex-mcp-server"]
     }
   }
 }
 ```
 
-### Claude.ai (Remote)
+### Claude Code
+
+```bash
+claude mcp add eurlex-mcp-server -- npx -y eurlex-mcp-server
+```
+
+### VS Code
+
+Add to `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "eurlex": {
+      "command": "npx",
+      "args": ["-y", "eurlex-mcp-server"]
+    }
+  }
+}
+```
+
+### Cursor
+
+Add to `.cursor/mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "eurlex": {
-      "type": "url",
+      "command": "npx",
+      "args": ["-y", "eurlex-mcp-server"]
+    }
+  }
+}
+```
+
+### Windsurf
+
+Add to `~/.windsurf/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "eurlex": {
+      "command": "npx",
+      "args": ["-y", "eurlex-mcp-server"]
+    }
+  }
+}
+```
+
+### Remote HTTP
+
+```json
+{
+  "mcpServers": {
+    "eurlex": {
       "url": "https://eurlex-mcp.example.com/mcp"
     }
   }
 }
 ```
 
-## Beispiel-Queries
+## Tool Reference
 
-**AI Act suchen:**
+### eurlex_search
+
+Full-text search across EUR-Lex documents.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `query` | string | yes | -- | Search term (3-500 chars), e.g. `"artificial intelligence high risk"` |
+| `resource_type` | string | no | `"any"` | Document type filter: `REG`, `DIR`, `DEC`, `JUDG`, `REG_IMPL`, `REG_DEL`, `DIR_IMPL`, `DIR_DEL`, `DEC_IMPL`, `DEC_DEL`, `ORDER`, `OPIN_AG`, `RECO`, `any` |
+| `language` | string | no | `"DEU"` | Language for titles and full text: `DEU`, `ENG`, `FRA` |
+| `limit` | number | no | `10` | Max results (1-50) |
+| `date_from` | string | no | -- | Filter from date, format: `YYYY-MM-DD` |
+| `date_to` | string | no | -- | Filter to date, format: `YYYY-MM-DD` |
+
+### eurlex_fetch
+
+Retrieve the full text of a document by its CELEX identifier.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `celex_id` | string | yes | -- | CELEX identifier, e.g. `"32024R1689"` for the AI Act |
+| `language` | string | no | `"DEU"` | Language: `DEU`, `ENG`, `FRA` |
+| `format` | string | no | `"xhtml"` | Output format: `xhtml` (structured) or `plain` (tags stripped) |
+| `max_chars` | number | no | `20000` | Max characters returned (1000-50000) |
+
+### eurlex_metadata
+
+Retrieve structured metadata for a document (dates, EuroVoc descriptors, legal basis, etc.).
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `celex_id` | string | yes | -- | CELEX identifier, e.g. `"32024R1689"` |
+| `language` | string | no | `"DEU"` | Language for titles and EuroVoc labels: `DEU`, `ENG`, `FRA` |
+
+### eurlex_citations
+
+Explore the citation graph of a document -- which acts it cites and which acts cite it.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `celex_id` | string | yes | -- | CELEX identifier, e.g. `"32024R1689"` |
+| `language` | string | no | `"DEU"` | Language for titles: `DEU`, `ENG`, `FRA` |
+| `direction` | string | no | `"both"` | `cites` (outgoing), `cited_by` (incoming), or `both` |
+| `limit` | number | no | `20` | Max results (1-100) |
+
+### eurlex_by_eurovoc
+
+Find documents by EuroVoc thesaurus concept (label or URI).
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `concept` | string | yes | -- | EuroVoc concept: label (e.g. `"artificial intelligence"`) or URI (e.g. `"http://eurovoc.europa.eu/4424"`) |
+| `resource_type` | string | no | `"any"` | Document type filter (same values as `eurlex_search`) |
+| `language` | string | no | `"DEU"` | Language: `DEU`, `ENG`, `FRA` |
+| `limit` | number | no | `10` | Max results (1-50) |
+
+### eurlex_consolidated
+
+Retrieve the consolidated (in-force) version of a regulation, directive, or decision.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `doc_type` | string | yes | -- | Document type: `reg` (regulation), `dir` (directive), `dec` (decision) |
+| `year` | number | yes | -- | Year of the act (1950-2100), e.g. `2024` |
+| `number` | number | yes | -- | Document number, e.g. `1689` |
+| `language` | string | no | `"DEU"` | Language: `DEU`, `ENG`, `FRA` |
+| `format` | string | no | `"xhtml"` | Output format: `xhtml` or `plain` |
+| `max_chars` | number | no | `20000` | Max characters returned (1000-50000) |
+
+## CELEX Number Schema
+
+CELEX identifiers uniquely identify EU legal documents. The format is:
+
 ```
-eurlex_search({ query: "künstliche Intelligenz", resource_type: "REG" })
+[sector][year][type][number]
 ```
 
-**DSGVO Volltext abrufen:**
-```
-eurlex_fetch({ celex_id: "32016R0679", language: "DEU", format: "plain" })
-```
+- **Sector** (1 digit): `3` = legislation, `6` = case law, `5` = preparatory acts
+- **Year** (4 digits): year of the document
+- **Type** (1-2 letters): `R` = regulation, `L` = directive, `D` = decision, `J` = judgment, etc.
+- **Number**: sequential number
 
-**NIS2-Richtlinie auf Englisch:**
-```
-eurlex_fetch({ celex_id: "32022L2555", language: "ENG" })
-```
+Examples:
 
-## Tests
+| CELEX | Document |
+|-------|----------|
+| `32024R1689` | AI Act (Regulation 2024/1689) |
+| `32016R0679` | GDPR (Regulation 2016/679) |
+| `32022R2065` | Digital Services Act (Regulation 2022/2065) |
+| `62014CJ0131` | Court of Justice case C-131/14 |
+
+## Development
+
+### Setup
 
 ```bash
-pnpm test                  # Unit + Smoke + Integration
-pnpm run test:integration  # Nur Live-Tests gegen Cellar API
-pnpm run test:watch        # Watch-Modus
+git clone https://github.com/philrox/eurlex-mcp-server.git
+cd eurlex-mcp-server
+pnpm install
+pnpm build
 ```
 
-37 Tests: 15 CellarClient, 6 Tool-Tests, 8 Server/Smoke, 5 Live-Integration, 1 Setup.
+### Commands
 
-## Deployment
+| Command | Description |
+|---------|-------------|
+| `pnpm dev` | Start dev server with hot reload |
+| `pnpm build` | Compile TypeScript |
+| `pnpm test` | Run unit tests |
+| `pnpm test:watch` | Run tests in watch mode |
+| `pnpm test:integration` | Run integration tests (hits real API) |
+| `pnpm start` | Start production server |
 
-```dockerfile
-FROM node:20-alpine
-RUN corepack enable
-WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile --prod
-COPY dist/ ./dist/
-ENV TRANSPORT=http
-ENV PORT=3001
-EXPOSE 3001
-CMD ["node", "dist/index.js"]
+### Testing
+
+```bash
+pnpm test              # unit tests
+pnpm test:integration  # integration tests (hits real API)
 ```
 
-## Einschränkungen
+## Limitations
 
-- SPARQL sucht nur in **Titeln**, nicht im Volltext
-- Sehr lange Dokumente (AI Act: ~1.3 MB) werden bei `max_chars` abgeschnitten
-- SPARQL-Antwortzeit: 2-10 Sekunden
-- Nicht alle Dokumente haben eine XHTML-Version
-- `text/html` funktioniert nicht auf Cellar — nur `application/xhtml+xml`
+- **Rate limits**: The EUR-Lex Cellar API is public but may throttle excessive requests.
+- **Document availability**: Not all documents have full text in all languages.
+- **Consolidated versions**: Only available for regulations, directives, and decisions.
+- **Response size**: Full text is truncated at `max_chars` (default 20,000 characters) to stay within LLM context limits.
+- **SPARQL timeouts**: Complex EuroVoc queries may occasionally time out on the Cellar endpoint.
 
-## Stack
+## Contributing
 
-TypeScript, MCP SDK, Express, Zod, Vitest
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture overview, and submission guidelines.
+
+## License
+
+[MIT](LICENSE)
