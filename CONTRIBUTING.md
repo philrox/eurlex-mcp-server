@@ -29,6 +29,7 @@ pnpm test
 ```
 src/
   index.ts          # Entry point — stdio/HTTP transport selection
+  http.ts           # Entry point — HTTP/StreamableHTTP transport
   server.ts         # MCP server setup, tool registration
   constants.ts      # Shared constants (endpoints, regex, limits)
   types.ts          # Shared TypeScript types
@@ -50,12 +51,14 @@ src/
   services/
     cellarClient.ts # HTTP/SPARQL client for EUR-Lex Cellar API
   prompts/          # MCP prompt templates
+    guide.ts
 ```
 
 **Data flow:**
 
 ```
-MCP Client → index.ts → server.ts → tools/*.ts → cellarClient.ts → EUR-Lex Cellar API
+Stdio:  MCP Client → index.ts → server.ts → tools/*.ts → cellarClient.ts → EUR-Lex Cellar API
+HTTP:   MCP Client → http.ts  → server.ts → tools/*.ts → cellarClient.ts → EUR-Lex Cellar API
 ```
 
 ## Development Workflow
@@ -95,7 +98,7 @@ The pre-commit hook will run formatting and linting automatically.
 ## Writing Tests
 
 - **Framework**: Vitest
-- **Location**: `tests/` directory (mirrors `src/` structure)
+- **Location**: `tests/` directory (flat structure, one file per module)
 - **HTTP mocking**: Mock `cellarClient.ts` functions -- do not make real HTTP calls in unit tests
 - **Integration tests**: Placed in separate files, run with `pnpm test:integration`
 
@@ -130,17 +133,33 @@ describe('toolName', () => {
 2. **Implement the tool** in `src/tools/<toolName>.ts`:
 
    ```typescript
-   import type { MyToolInput } from '../schemas/myToolSchema.js'
-   import { cellarClient } from '../services/cellarClient.js'
+   import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
+   import { myToolSchema } from '../schemas/myToolSchema.js'
+   import { CellarClient } from '../services/cellarClient.js'
+   import { toolError } from '../utils.js'
 
-   export async function myTool(input: MyToolInput) {
-     // Build SPARQL query or REST call
-     // Call cellarClient
-     // Transform and return results
+   export async function handleMyTool(input: MyToolInput) {
+     try {
+       const parsed = myToolSchema.parse(input)
+       const client = new CellarClient()
+       // Build SPARQL query or REST call, transform and return results
+     } catch (error) {
+       return toolError(error)
+     }
+   }
+
+   export function registerMyTool(server: McpServer): void {
+     server.tool(
+       'eurlex_my_tool',
+       'Description of the tool',
+       myToolSchema.shape,
+       { readOnlyHint: true, destructiveHint: false },
+       async (params) => handleMyTool(params),
+     )
    }
    ```
 
-3. **Register the tool** in `src/server.ts` -- add it to the tool registration section.
+3. **Register the tool** in `src/server.ts` -- import and call `registerMyTool(server)`.
 
 4. **Write tests** in `tests/tools/<toolName>.test.ts`.
 
@@ -172,7 +191,7 @@ Releases are triggered by version tags:
 
 ```bash
 pnpm version patch   # or minor / major
-git push --tags
+git push --follow-tags
 ```
 
 This publishes to npm via CI.

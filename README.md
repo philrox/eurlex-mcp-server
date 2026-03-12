@@ -109,18 +109,6 @@ Add to `~/.windsurf/mcp.json`:
 }
 ```
 
-### Remote HTTP
-
-```json
-{
-  "mcpServers": {
-    "eurlex": {
-      "url": "https://eurlex-mcp.example.com/mcp"
-    }
-  }
-}
-```
-
 ## Tool Reference
 
 ### eurlex_search
