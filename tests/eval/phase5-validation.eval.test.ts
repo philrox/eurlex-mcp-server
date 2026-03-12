@@ -39,7 +39,7 @@ describe('Phase 5 Eval – Validation Matrix', () => {
     const TIMEOUT = 60_000
 
     it('V1: SPARQL endpoint is reachable via POST and returns results with bindings', async () => {
-      const results = await client.sparqlQuery('Datenschutz-Grundverordnung', { limit: 1 })
+      const { results } = await client.sparqlQuery('Datenschutz-Grundverordnung', { limit: 1 })
 
       expect(Array.isArray(results)).toBe(true)
       expect(results.length).toBeGreaterThanOrEqual(1)
@@ -52,7 +52,7 @@ describe('Phase 5 Eval – Validation Matrix', () => {
     }, TIMEOUT)
 
     it('V2: AI Act findable – result contains celex starting with "32024R1689"', async () => {
-      const results = await client.sparqlQuery('künstliche Intelligenz', {
+      const { results } = await client.sparqlQuery('künstliche Intelligenz', {
         language: 'DEU',
         limit: 50,
       })
@@ -63,7 +63,7 @@ describe('Phase 5 Eval – Validation Matrix', () => {
     }, TIMEOUT)
 
     it('V3: DSGVO findable – result contains celex "32016R0679"', async () => {
-      const results = await client.sparqlQuery('Datenschutz-Grundverordnung', {
+      const { results } = await client.sparqlQuery('Datenschutz-Grundverordnung', {
         language: 'DEU',
         limit: 50,
       })

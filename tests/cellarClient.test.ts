@@ -45,7 +45,7 @@ describe('sparqlQuery()', () => {
     })
 
     const client = new CellarClient()
-    const results = await client.sparqlQuery('test query')
+    const { results } = await client.sparqlQuery('test query')
 
     expect(results).toHaveLength(2)
     expect(results[0]).toMatchObject({
@@ -69,7 +69,7 @@ describe('sparqlQuery()', () => {
     })
 
     const client = new CellarClient()
-    const results = await client.sparqlQuery('xyznonexistent123')
+    const { results } = await client.sparqlQuery('xyznonexistent123')
     expect(results).toEqual([])
   })
 
@@ -138,7 +138,7 @@ describe('fetchDocument()', () => {
     })
 
     const client = new CellarClient()
-    await expect(client.fetchDocument('00000X0000', 'DEU')).rejects.toThrow('Document not found: 00000X0000')
+    await expect(client.fetchDocument('00000X0000', 'DEU')).rejects.toThrow('Document not found: 00000X0000. The document may not be available in electronic full-text format on EUR-Lex.')
   })
 
   it('T8 – uses Cellar REST URL with content negotiation headers', async () => {
@@ -237,6 +237,94 @@ describe('buildSparqlQuery()', () => {
 })
 
 // ===========================================================================
+// Test T14a: buildSparqlQuery with date_to
+// ===========================================================================
+describe('buildSparqlQuery() – date_to', () => {
+  it('T14a – includes FILTER(?date <= ...) when date_to is set', () => {
+    const client = new CellarClient()
+    const sparql = client.buildSparqlQuery({
+      query: 'carbon border adjustment',
+      resource_type: 'any',
+      language: 'DEU',
+      limit: 10,
+      date_to: '2024-06-30',
+    })
+
+    expect(sparql).toContain('FILTER(?date <= "2024-06-30"^^xsd:date)')
+  })
+
+  it('T14b – omits date_to filter when not provided', () => {
+    const client = new CellarClient()
+    const sparql = client.buildSparqlQuery({
+      query: 'carbon border adjustment',
+      resource_type: 'any',
+      language: 'DEU',
+      limit: 10,
+    })
+
+    expect(sparql).not.toContain('FILTER(?date <=')
+  })
+})
+
+// ===========================================================================
+// Test T14c: fetchDocument non-404 errors
+// ===========================================================================
+describe('fetchDocument() – non-404 errors', () => {
+  it('T14c – throws "Fetch error: 500" on HTTP 500', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+    })
+
+    const client = new CellarClient()
+    await expect(client.fetchDocument('32021R0694', 'DEU'))
+      .rejects.toThrow('Fetch error: 500')
+  })
+
+  it('T14d – throws "Fetch error: 503" on HTTP 503', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 503,
+      statusText: 'Service Unavailable',
+    })
+
+    const client = new CellarClient()
+    await expect(client.fetchDocument('32021R0694', 'DEU'))
+      .rejects.toThrow('Fetch error: 503')
+  })
+})
+
+// ===========================================================================
+// Tests: Old/unavailable document handling (Bug 4)
+// ===========================================================================
+describe('fetchDocument() – old/unavailable documents', () => {
+  it('T14e – throws XHTML-unavailability message on HTTP 406', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 406,
+      statusText: 'Not Acceptable',
+    })
+
+    const client = new CellarClient()
+    await expect(client.fetchDocument('31995L0046', 'DEU'))
+      .rejects.toThrow('Document 31995L0046 is not available in XHTML format. Older documents may only exist as PDF on EUR-Lex.')
+  })
+
+  it('T14f – 404 error message includes hint about electronic format', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      statusText: 'Not Found',
+    })
+
+    const client = new CellarClient()
+    await expect(client.fetchDocument('31995L0046', 'DEU'))
+      .rejects.toThrow('The document may not be available in electronic full-text format on EUR-Lex.')
+  })
+})
+
+// ===========================================================================
 // Test V21: SPARQL Injection — escapeSparqlString
 // ===========================================================================
 describe('escapeSparqlString()', () => {
@@ -253,5 +341,182 @@ describe('escapeSparqlString()', () => {
     const sparqlLiteral = `"${escaped}"`
     const unescapedQuotes = sparqlLiteral.match(/(?<!\\)"/g)
     expect(unescapedQuotes).toHaveLength(2) // only the wrapper quotes
+  })
+
+  it('escapes newline characters', () => {
+    expect(escapeSparqlString('line1\nline2')).toBe('line1\\nline2')
+  })
+
+  it('escapes tab characters', () => {
+    expect(escapeSparqlString('tab\there')).toBe('tab\\there')
+  })
+
+  it('escapes carriage return characters', () => {
+    expect(escapeSparqlString('cr\rhere')).toBe('cr\\rhere')
+  })
+
+  it('strips null bytes', () => {
+    expect(escapeSparqlString('null\0byte')).toBe('nullbyte')
+  })
+})
+
+// ===========================================================================
+// Tests: fetch timeout (AbortSignal)
+// ===========================================================================
+describe('fetch timeout', () => {
+  it('sparqlQuery passes AbortSignal to fetch', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ results: { bindings: [] } }),
+    })
+    const client = new CellarClient()
+    await client.sparqlQuery('test')
+    const callArgs = mockFetch.mock.calls[0]
+    expect(callArgs[1].signal).toBeDefined()
+  })
+
+  it('fetchDocument passes AbortSignal to fetch', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      text: async () => '<html></html>',
+    })
+    const client = new CellarClient()
+    await client.fetchDocument('32021R0694', 'DEU')
+    const callArgs = mockFetch.mock.calls[0]
+    expect(callArgs[1].signal).toBeDefined()
+  })
+
+  it('metadataQuery passes AbortSignal to fetch', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        results: {
+          bindings: [{
+            title: { type: 'literal', value: 'Test' },
+          }],
+        },
+      }),
+    })
+    const client = new CellarClient()
+    await client.metadataQuery('32021R0694', 'DEU')
+    const callArgs = mockFetch.mock.calls[0]
+    expect(callArgs[1].signal).toBeDefined()
+  })
+
+  it('citationsQuery passes AbortSignal to fetch', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ results: { bindings: [] } }),
+    })
+    const client = new CellarClient()
+    await client.citationsQuery('32021R0694', 'DEU', 'both', 10)
+    const callArgs = mockFetch.mock.calls[0]
+    expect(callArgs[1].signal).toBeDefined()
+  })
+
+  it('eurovocQuery passes AbortSignal to fetch (URI path)', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ results: { bindings: [] } }),
+    })
+    const client = new CellarClient()
+    await client.eurovocQuery('http://eurovoc.europa.eu/4424', 'any', 'DEU', 10)
+    const callArgs = mockFetch.mock.calls[0]
+    expect(callArgs[1].signal).toBeDefined()
+  })
+
+  it('eurovocQuery passes AbortSignal to fetch (label path)', async () => {
+    // First call: label resolution
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ results: { bindings: [{ concept: { value: 'http://eurovoc.europa.eu/1234' } }] } }),
+    })
+    // Second call: document query
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ results: { bindings: [] } }),
+    })
+    const client = new CellarClient()
+    await client.eurovocQuery('environment', 'any', 'DEU', 10)
+    // Both calls should have AbortSignal
+    expect(mockFetch.mock.calls[0][1].signal).toBeDefined()
+    expect(mockFetch.mock.calls[1][1].signal).toBeDefined()
+  })
+
+  it('fetchConsolidated passes AbortSignal to both SPARQL and REST fetch calls', async () => {
+    // First call: SPARQL to find consolidated CELEX
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        results: { bindings: [{ celex: { type: 'literal', value: '02021R0694-20210101' } }] },
+      }),
+    })
+    // Second call: Cellar REST to fetch document
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      text: async () => '<html><body>Content</body></html>',
+    })
+    const client = new CellarClient()
+    await client.fetchConsolidated('reg', 2021, 694, 'DEU')
+    expect(mockFetch.mock.calls[0][1].signal).toBeDefined()
+    expect(mockFetch.mock.calls[1][1].signal).toBeDefined()
+  })
+})
+
+// ===========================================================================
+// sparqlQuery with empty bindings
+// ===========================================================================
+describe('sparqlQuery() – empty bindings', () => {
+  it('returns empty results array when bindings are empty', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ results: { bindings: [] } }),
+    })
+
+    const client = new CellarClient()
+    const { results } = await client.sparqlQuery('anything')
+    expect(results).toEqual([])
+  })
+})
+
+// ===========================================================================
+// Deduplication by CELEX ID
+// ===========================================================================
+describe('sparqlQuery() – deduplication', () => {
+  it('deduplicates results with same CELEX ID but different resource types', async () => {
+    const body = makeSparqlResponse([
+      { work: 'http://publications.europa.eu/resource/cellar/uuid1', celex: '32024R1689R(01)', title: 'Corrigendum to AI Act', date: '2024-08-01', resType: 'CORRIGENDUM' },
+      { work: 'http://publications.europa.eu/resource/cellar/uuid2', celex: '32024R1689R(01)', title: 'Corrigendum to AI Act', date: '2024-08-01', resType: 'REG' },
+    ])
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => body,
+    })
+
+    const client = new CellarClient()
+    const { results } = await client.sparqlQuery('AI Act')
+
+    // Should deduplicate: same CELEX ID appears only once
+    expect(results).toHaveLength(1)
+    expect(results[0].celex).toBe('32024R1689R(01)')
+    // Keeps the first occurrence (CORRIGENDUM, which comes first by ORDER BY DESC(?date))
+    expect(results[0].type).toBe('CORRIGENDUM')
+  })
+})
+
+// ===========================================================================
+// buildSparqlQuery language fallback
+// ===========================================================================
+describe('buildSparqlQuery() – language fallback', () => {
+  it('uses language code directly when not in LANGUAGE_URI_MAP', () => {
+    const client = new CellarClient()
+    const query = client.buildSparqlQuery({
+      query: 'test',
+      resource_type: 'any',
+      language: 'ITA',
+      limit: 10,
+    })
+    expect(query).toContain('language/ITA')
   })
 })

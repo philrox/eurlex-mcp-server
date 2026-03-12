@@ -4,8 +4,10 @@ import {
   EURLEX_BASE,
   DEFAULT_LANGUAGE,
   DEFAULT_LIMIT,
+  REQUEST_TIMEOUT_MS,
 } from '../constants.js';
 import type { SparqlQueryParams, SearchResult, MetadataResult, CitationsResult, CitationEntry } from '../types.js';
+
 
 /** Maps 3-letter language codes to CDM expression language URI suffixes */
 const LANGUAGE_URI_MAP: Record<string, string> = {
@@ -27,6 +29,12 @@ const LANGUAGE_ELI_MAP: Record<string, string> = {
   ENG: 'eng',
   FRA: 'fra',
 };
+
+/** Valid citation relationship types between EU legal acts */
+export const VALID_RELATIONSHIPS = new Set<CitationEntry['relationship']>([
+  'cites', 'cited_by', 'amends', 'amended_by',
+  'based_on', 'basis_for', 'repeals', 'repealed_by',
+]);
 
 /** Shape of a single SPARQL binding value */
 interface SparqlBindingValue {
@@ -83,10 +91,32 @@ interface SparqlResponse {
  * Escapes backslashes and double-quotes.
  */
 export function escapeSparqlString(input: string): string {
-  return input.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  return input
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t')
+    .replace(/\0/g, '');
 }
 
 export class CellarClient {
+  private async executeSparql<T>(sparql: string): Promise<T> {
+    const response = await fetch(SPARQL_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/sparql-query',
+        Accept: 'application/sparql-results+json',
+      },
+      body: sparql,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    if (!response.ok) {
+      throw new Error(`SPARQL endpoint error: ${response.status}`);
+    }
+    return (await response.json()) as T;
+  }
+
   /**
    * Builds a SPARQL SELECT query from the given parameters.
    */
@@ -164,7 +194,7 @@ export class CellarClient {
   async sparqlQuery(
     query: string,
     params?: Partial<SparqlQueryParams>
-  ): Promise<SearchResult[]> {
+  ): Promise<{ results: SearchResult[]; sparql: string }> {
     const fullParams: SparqlQueryParams = {
       query,
       resource_type: params?.resource_type ?? 'any',
@@ -176,23 +206,10 @@ export class CellarClient {
 
     const sparql = this.buildSparqlQuery(fullParams);
 
-    const response = await fetch(SPARQL_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/sparql-query',
-        Accept: 'application/sparql-results+json',
-      },
-      body: sparql,
-    });
-
-    if (!response.ok) {
-      throw new Error(`SPARQL endpoint error: ${response.status}`);
-    }
-
-    const data = (await response.json()) as SparqlResponse;
+    const data = await this.executeSparql<SparqlResponse>(sparql);
     const lang = fullParams.language;
 
-    return data.results.bindings.map((binding) => {
+    const results = data.results.bindings.map((binding) => {
       const celex = binding.celex.value;
       return {
         celex,
@@ -202,6 +219,16 @@ export class CellarClient {
         eurlex_url: `${EURLEX_BASE}/${LANGUAGE_HTTP_MAP[lang] ?? 'de'}/TXT/?uri=CELEX:${celex}`,
       };
     });
+
+    // Deduplicate by CELEX ID (same document can have multiple resource types)
+    const seen = new Set<string>();
+    const deduped = results.filter(r => {
+      if (seen.has(r.celex)) return false;
+      seen.add(r.celex);
+      return true;
+    });
+
+    return { results: deduped, sparql };
   }
 
   /**
@@ -219,10 +246,15 @@ export class CellarClient {
         'Accept-Language': httpLang,
       },
       redirect: 'follow',
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
     if (response.status === 404) {
-      throw new Error(`Document not found: ${celex_id}`);
+      throw new Error(`Document not found: ${celex_id}. The document may not be available in electronic full-text format on EUR-Lex.`);
+    }
+
+    if (response.status === 406) {
+      throw new Error(`Document ${celex_id} is not available in XHTML format. Older documents may only exist as PDF on EUR-Lex.`);
     }
 
     if (!response.ok) {
@@ -288,20 +320,7 @@ export class CellarClient {
   async metadataQuery(celexId: string, language: string): Promise<MetadataResult> {
     const sparql = this.buildMetadataQuery(celexId, language);
 
-    const response = await fetch(SPARQL_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/sparql-query',
-        Accept: 'application/sparql-results+json',
-      },
-      body: sparql,
-    });
-
-    if (!response.ok) {
-      throw new Error(`SPARQL endpoint error: ${response.status}`);
-    }
-
-    const data = (await response.json()) as MetadataSparqlResponse;
+    const data = await this.executeSparql<MetadataSparqlResponse>(sparql);
 
     if (data.results.bindings.length === 0) {
       throw new Error(`No metadata found for CELEX: ${celexId}`);
@@ -426,28 +445,22 @@ export class CellarClient {
     const sparql = this.buildCitationsQuery(celexId, language, direction, limit);
     const httpLang = LANGUAGE_HTTP_MAP[language] ?? 'de';
 
-    const response = await fetch(SPARQL_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/sparql-query',
-        Accept: 'application/sparql-results+json',
-      },
-      body: sparql,
+    const data = await this.executeSparql<CitationsSparqlResponse>(sparql);
+
+    const citations = data.results.bindings.map((b) => {
+      const rel = b.rel.value;
+      if (!VALID_RELATIONSHIPS.has(rel as CitationEntry['relationship'])) {
+        throw new Error(`Unexpected relationship value from SPARQL: ${rel}`);
+      }
+      return {
+        celex: b.celex.value,
+        title: b.title.value,
+        date: b.date?.value ?? '',
+        type: b.resType.value,
+        relationship: rel as CitationEntry['relationship'],
+        eurlex_url: `${EURLEX_BASE}/${httpLang}/TXT/?uri=CELEX:${b.celex.value}`,
+      };
     });
-
-    if (!response.ok) {
-      throw new Error(`SPARQL endpoint error: ${response.status}`);
-    }
-
-    const data = (await response.json()) as CitationsSparqlResponse;
-    const citations = data.results.bindings.map((b) => ({
-      celex: b.celex.value,
-      title: b.title.value,
-      date: b.date?.value ?? '',
-      type: b.resType.value,
-      relationship: b.rel.value as CitationEntry['relationship'],
-      eurlex_url: `${EURLEX_BASE}/${httpLang}/TXT/?uri=CELEX:${b.celex.value}`,
-    }));
 
     return {
       celex_id: celexId,
@@ -457,29 +470,59 @@ export class CellarClient {
   }
 
   /**
-   * Builds a SPARQL query to find EU legal acts by EuroVoc concept.
-   * Accepts either a label string (resolved via skos:prefLabel) or a direct URI.
+   * Resolves a EuroVoc label to its concept URI via a lightweight SPARQL query.
+   * Returns null if no matching concept is found.
+   */
+  async resolveEurovocLabel(label: string): Promise<string | null> {
+    const sparql = [
+      'PREFIX skos: <http://www.w3.org/2004/02/skos/core#>',
+      'SELECT ?concept WHERE {',
+      '  ?concept a skos:Concept .',
+      '  ?concept skos:prefLabel ?label .',
+      `  FILTER(STRSTARTS(STR(?concept), "http://eurovoc.europa.eu/"))`,
+      `  FILTER(CONTAINS(LCASE(STR(?label)), LCASE("${escapeSparqlString(label)}")))`,
+      '}',
+      'LIMIT 1',
+    ].join('\n');
+
+    try {
+      const data = await this.executeSparql<{ results: { bindings: Array<{ concept: { value: string } }> } }>(sparql);
+      const bindings = data.results.bindings;
+      return bindings.length > 0 ? bindings[0].concept.value : null;
+    } catch {
+      // Timeout or SPARQL error during label resolution — return null to indicate no match
+      return null;
+    }
+  }
+
+  /**
+   * Builds a SPARQL query to find EU legal acts by EuroVoc concept URI.
+   * Only accepts a direct EuroVoc URI — label resolution must be done beforehand
+   * via resolveEurovocLabel().
    */
   buildEurovocQuery(
-    concept: string,
+    conceptUri: string,
     resourceType: string,
     language: string,
     limit: number
   ): string {
     const lang = LANGUAGE_URI_MAP[language] ?? language;
-    const isUri = concept.startsWith('http');
 
-    if (isUri && /[><\s"{}|\\^`]/.test(concept)) {
+    // Only accept URIs
+    if (!conceptUri.startsWith('http')) {
+      throw new Error(`Invalid concept: expected a URI starting with http, got "${conceptUri}". Use resolveEurovocLabel() first.`);
+    }
+
+    // Reject angle brackets — they can break SPARQL IRI syntax
+    if (/[<>]/.test(conceptUri)) {
       throw new Error(`Invalid URI: contains characters not allowed in SPARQL IRIs`);
     }
 
-    const conceptFilter = isUri
-      ? `  ?work cdm:work_is_about_concept_eurovoc <${concept}> .`
-      : [
-          `  ?work cdm:work_is_about_concept_eurovoc ?evConcept .`,
-          `  ?evConcept skos:prefLabel ?evLabel .`,
-          `  FILTER(CONTAINS(LCASE(STR(?evLabel)), LCASE("${escapeSparqlString(concept)}")))`,
-        ].join('\n');
+    if (/[\s"{}|\\^`]/.test(conceptUri)) {
+      throw new Error(`Invalid URI: contains characters not allowed in SPARQL IRIs`);
+    }
+
+    const conceptFilter = `  ?work cdm:work_is_about_concept_eurovoc <${conceptUri}> .`;
 
     const typeFilter = resourceType !== 'any'
       ? `  ?work cdm:work_has_resource-type <http://publications.europa.eu/resource/authority/resource-type/${resourceType}> .`
@@ -509,6 +552,7 @@ export class CellarClient {
 
   /**
    * Executes a EuroVoc concept query against the SPARQL endpoint and returns search results.
+   * For label-based concepts, first resolves the label to a URI via a lightweight query.
    */
   async eurovocQuery(
     concept: string,
@@ -516,23 +560,23 @@ export class CellarClient {
     language: string,
     limit: number
   ): Promise<SearchResult[]> {
-    const sparql = this.buildEurovocQuery(concept, resourceType, language, limit);
-    const httpLang = LANGUAGE_HTTP_MAP[language] ?? 'de';
+    const isUri = concept.startsWith('http');
+    let conceptUri: string;
 
-    const response = await fetch(SPARQL_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/sparql-query',
-        Accept: 'application/sparql-results+json',
-      },
-      body: sparql,
-    });
-
-    if (!response.ok) {
-      throw new Error(`SPARQL endpoint error: ${response.status}`);
+    if (isUri) {
+      conceptUri = concept;
+    } else {
+      const resolved = await this.resolveEurovocLabel(concept);
+      if (resolved === null) {
+        return [];
+      }
+      conceptUri = resolved;
     }
 
-    const data = (await response.json()) as SparqlResponse;
+    const sparql = this.buildEurovocQuery(conceptUri, resourceType, language, limit);
+    const httpLang = LANGUAGE_HTTP_MAP[language] ?? 'de';
+
+    const data = await this.executeSparql<SparqlResponse>(sparql);
     return data.results.bindings.map((b) => ({
       celex: b.celex.value,
       title: b.title.value,
@@ -542,8 +586,39 @@ export class CellarClient {
     }));
   }
 
+  /** Maps doc_type (reg/dir/dec) to CELEX type letter (R/L/D) */
+  private static readonly DOC_TYPE_CELEX_MAP: Record<string, string> = {
+    reg: 'R',
+    dir: 'L',
+    dec: 'D',
+  }
+
   /**
-   * Fetches the consolidated (currently applicable) version of an EU legal act via ELI URL.
+   * Finds the consolidated CELEX ID for a given document via SPARQL.
+   * Consolidated CELEX IDs have prefix 0, e.g. 02024R1689-20240712.
+   */
+  async findConsolidatedCelex(docType: string, year: number, number: number): Promise<string | null> {
+    const typeLetter = CellarClient.DOC_TYPE_CELEX_MAP[docType] ?? 'R'
+    const celexPrefix = `0${year}${typeLetter}${String(number).padStart(4, '0')}`
+
+    const sparql = [
+      'PREFIX cdm: <http://publications.europa.eu/ontology/cdm#>',
+      `SELECT ?celex WHERE {`,
+      `  ?work cdm:resource_legal_id_celex ?celex .`,
+      `  FILTER(STRSTARTS(STR(?celex), "${celexPrefix}"))`,
+      `}`,
+      `ORDER BY DESC(?celex)`,
+      `LIMIT 1`,
+    ].join('\n')
+
+    const data = await this.executeSparql<{ results: { bindings: Array<{ celex: { value: string } }> } }>(sparql)
+    return data.results.bindings.length > 0 ? data.results.bindings[0].celex.value : null
+  }
+
+  /**
+   * Fetches the consolidated (currently applicable) version of an EU legal act.
+   * Step 1: Find consolidated CELEX ID via SPARQL.
+   * Step 2: Fetch document from Cellar REST (same endpoint as fetchDocument).
    */
   async fetchConsolidated(
     docType: string,
@@ -551,25 +626,42 @@ export class CellarClient {
     number: number,
     language: string
   ): Promise<{ content: string; eliUrl: string }> {
-    const eliLang = LANGUAGE_ELI_MAP[language] ?? 'deu'
-    const eliUrl = `http://data.europa.eu/eli/${docType}/${year}/${number}/${eliLang}/xhtml`
+    // Step 1: Find consolidated CELEX ID
+    const consolidatedCelex = await this.findConsolidatedCelex(docType, year, number)
 
-    const response = await fetch(eliUrl, {
+    if (!consolidatedCelex) {
+      throw new Error(
+        `Keine konsolidierte Fassung für ${docType}/${year}/${number} verfügbar. ` +
+        `Verwenden Sie eurlex_fetch mit der CELEX-ID für die Original-OJ-Version.`
+      )
+    }
+
+    // Step 2: Fetch from Cellar REST (same as fetchDocument)
+    const httpLang = LANGUAGE_HTTP_MAP[language] ?? 'de'
+    const url = `${CELLAR_REST_BASE}/${consolidatedCelex}`
+
+    const response = await fetch(url, {
       method: 'GET',
-      headers: { Accept: 'application/xhtml+xml' },
-      redirect: 'follow',  // ELI URLs redirect to EUR-Lex
+      headers: {
+        Accept: 'application/xhtml+xml',
+        'Accept-Language': httpLang,
+      },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
 
+    if (response.status === 404) {
+      throw new Error(
+        `Keine konsolidierte Fassung für ${docType}/${year}/${number} verfügbar (${consolidatedCelex} nicht abrufbar). ` +
+        `Verwenden Sie eurlex_fetch mit der CELEX-ID für die Original-OJ-Version.`
+      )
+    }
+
     if (!response.ok) {
-      if (response.status === 404) {
-        throw new Error(
-          `Keine konsolidierte Fassung für ${docType}/${year}/${number} verfügbar. ` +
-          `Verwenden Sie eurlex_fetch mit der CELEX-ID für die Original-OJ-Version.`
-        )
-      }
       throw new Error(`Consolidated document error: ${docType}/${year}/${number} (HTTP ${response.status})`)
     }
 
+    const eliUrl = `http://data.europa.eu/eli/${docType}/${year}/${number}`
     return { content: await response.text(), eliUrl }
   }
 }

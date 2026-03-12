@@ -17,7 +17,6 @@ export interface SearchResult {
 
 export interface FetchResult {
   celex_id: string
-  title: string
   language: string
   content: string
   truncated: boolean

@@ -23,4 +23,42 @@ describe('citationsSchema', () => {
   it('C4 – rejects invalid CELEX-ID', () => {
     expect(() => citationsSchema.parse({ celex_id: 'bad' })).toThrow()
   })
+
+  it('C4a – accepts CELEX ID with parentheses (corrigenda)', () => {
+    const result = citationsSchema.parse({ celex_id: '32023D2454(02)' })
+    expect(result.celex_id).toBe('32023D2454(02)')
+  })
+
+  it('C4b – rejects dangerous characters', () => {
+    expect(() => citationsSchema.parse({ celex_id: '<script>' })).toThrow()
+    expect(() => citationsSchema.parse({ celex_id: '32024R1689{x}' })).toThrow()
+  })
+
+  it('rejects limit below 1', () => {
+    expect(() => citationsSchema.parse({ celex_id: '32024R1689', limit: 0 })).toThrow()
+  })
+
+  it('rejects limit above 100', () => {
+    expect(() => citationsSchema.parse({ celex_id: '32024R1689', limit: 101 })).toThrow()
+  })
+
+  it('accepts limit of 100', () => {
+    const result = citationsSchema.parse({ celex_id: '32024R1689', limit: 100 })
+    expect(result.limit).toBe(100)
+  })
+
+  it('accepts all three direction values', () => {
+    for (const dir of ['cites', 'cited_by', 'both'] as const) {
+      const result = citationsSchema.parse({ celex_id: '32024R1689', direction: dir })
+      expect(result.direction).toBe(dir)
+    }
+  })
+
+  it('rejects unknown direction', () => {
+    expect(() => citationsSchema.parse({ celex_id: '32024R1689', direction: 'unknown' })).toThrow()
+  })
+
+  it('rejects unknown language', () => {
+    expect(() => citationsSchema.parse({ celex_id: '32024R1689', language: 'ITA' })).toThrow()
+  })
 })

@@ -12,6 +12,7 @@ vi.mock('../src/services/cellarClient.js', () => ({
 }))
 
 import { handleEurlexFetch } from '../src/tools/fetch.js'
+import type { FetchResult } from '../src/types.js'
 
 // ---------------------------------------------------------------------------
 // Reset mocks between tests
@@ -91,6 +92,36 @@ describe('handleEurlexFetch()', () => {
     expect(result.content[0].text).toMatch(/Error:/)
   })
 
+  it('T18c – char_count reports original length when truncated', async () => {
+    const longContent = 'x'.repeat(5000)
+    mockFetchDocument.mockResolvedValueOnce(longContent)
+    const result = await handleEurlexFetch({
+      celex_id: '32024R1689',
+      language: 'DEU',
+      format: 'xhtml',
+      max_chars: 1000,
+    })
+    const parsed = JSON.parse(result.content[0].text)
+    expect(parsed.truncated).toBe(true)
+    expect(parsed.char_count).toBe(5000)
+  })
+
+  it('T20b – plain format strips script and style tags completely', async () => {
+    mockFetchDocument.mockResolvedValueOnce(
+      '<html><script>if (a > b) { alert("x") }</script><p>Hello</p><style>.foo > .bar { color: red }</style></html>'
+    )
+    const result = await handleEurlexFetch({
+      celex_id: '32024R1689',
+      language: 'DEU',
+      format: 'plain',
+      max_chars: 20000,
+    })
+    const parsed = JSON.parse(result.content[0].text)
+    expect(parsed.content).not.toContain('alert')
+    expect(parsed.content).not.toContain('color')
+    expect(parsed.content).toContain('Hello')
+  })
+
   it('T20 – plain format removes XHTML tags', async () => {
     mockFetchDocument.mockResolvedValueOnce(
       '<div><p>Artikel 1: Gegenstand</p></div>'
@@ -109,5 +140,24 @@ describe('handleEurlexFetch()', () => {
     const parsed = JSON.parse(result.content[0].text)
     expect(parsed.content).not.toContain('<div>')
     expect(parsed.content).toContain('Artikel 1')
+  })
+
+  it('T-TYPE – fetch output matches FetchResult interface fields', async () => {
+    mockFetchDocument.mockResolvedValueOnce('<div><p>Content</p></div>')
+
+    const result = await handleEurlexFetch({
+      celex_id: '32024R1689',
+      language: 'DEU',
+      format: 'xhtml',
+      max_chars: 20000,
+    })
+
+    const parsed: FetchResult = JSON.parse(result.content[0].text)
+    const requiredKeys: (keyof FetchResult)[] = [
+      'celex_id', 'language', 'content', 'truncated', 'char_count', 'source_url',
+    ]
+    for (const key of requiredKeys) {
+      expect(parsed).toHaveProperty(key)
+    }
   })
 })

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { CellarClient } from '../src/services/cellarClient.js'
+import { CellarClient, VALID_RELATIONSHIPS } from '../src/services/cellarClient.js'
 
 const mockFetch = vi.fn()
 
@@ -79,6 +79,26 @@ describe('citationsQuery()', () => {
     expect(result.citations[0].relationship).toBe('cites')
   })
 
+  it('C9a – throws on unexpected relationship value', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        results: {
+          bindings: [{
+            celex: { type: 'literal', value: '32016R0679' },
+            title: { type: 'literal', value: 'Test' },
+            date: { type: 'literal', value: '2016-04-27' },
+            resType: { type: 'literal', value: 'REG' },
+            rel: { type: 'literal', value: 'unknown_relationship' },
+          }],
+        },
+      }),
+    })
+    const client = new CellarClient()
+    await expect(client.citationsQuery('32024R1689', 'DEU', 'both', 20))
+      .rejects.toThrow(/unexpected relationship/i)
+  })
+
   it('C10 – returns empty citations array when no relationships found', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,
@@ -90,5 +110,15 @@ describe('citationsQuery()', () => {
 
     expect(result.citations).toEqual([])
     expect(result.total).toBe(0)
+  })
+})
+
+describe('VALID_RELATIONSHIPS', () => {
+  it('is a Set with 8 valid relationship types', () => {
+    expect(VALID_RELATIONSHIPS).toBeInstanceOf(Set)
+    expect(VALID_RELATIONSHIPS.size).toBe(8)
+    for (const rel of ['cites', 'cited_by', 'amends', 'amended_by', 'based_on', 'basis_for', 'repeals', 'repealed_by']) {
+      expect(VALID_RELATIONSHIPS.has(rel as any)).toBe(true)
+    }
   })
 })

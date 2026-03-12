@@ -1,5 +1,6 @@
 import { citationsSchema } from '../schemas/citationsSchema.js'
 import { CellarClient } from '../services/cellarClient.js'
+import { toolError } from '../utils.js'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 export async function handleEurlexCitations(input: {
@@ -18,6 +19,12 @@ export async function handleEurlexCitations(input: {
       parsed.limit
     )
 
+    if (result.citations.length === 0) {
+      return {
+        content: [{ type: 'text' as const, text: `Keine Zitierungen gefunden für CELEX: ${parsed.celex_id}` }],
+      }
+    }
+
     return {
       content: [{
         type: 'text' as const,
@@ -25,11 +32,7 @@ export async function handleEurlexCitations(input: {
       }],
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    return {
-      content: [{ type: 'text' as const, text: `Error: ${message}` }],
-      isError: true,
-    }
+    return toolError(error)
   }
 }
 

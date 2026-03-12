@@ -34,7 +34,7 @@ describe('handleEurlexSearch()', () => {
       eurlex_url: 'https://eur-lex.europa.eu/legal-content/AUTO/?uri=CELEX:32024R1689',
     }
 
-    mockSparqlQuery.mockResolvedValueOnce([mockResult])
+    mockSparqlQuery.mockResolvedValueOnce({ results: [mockResult], sparql: 'SELECT ...' })
 
     const result = await handleEurlexSearch({
       query: 'artificial intelligence',
@@ -51,7 +51,7 @@ describe('handleEurlexSearch()', () => {
   })
 
   it('T16 – no results returns helpful message', async () => {
-    mockSparqlQuery.mockResolvedValueOnce([])
+    mockSparqlQuery.mockResolvedValueOnce({ results: [], sparql: 'SELECT ...' })
 
     const result = await handleEurlexSearch({
       query: 'xyznotfound',
@@ -64,6 +64,21 @@ describe('handleEurlexSearch()', () => {
     expect(result.content[0].type).toBe('text')
     expect(result.content[0].text).toContain('Keine Ergebnisse')
     expect(result.isError).toBeFalsy()
+  })
+
+  it('query_used matches the SPARQL actually sent to endpoint', async () => {
+    mockSparqlQuery.mockResolvedValueOnce({
+      results: [{ celex: '32024R1689', title: 'AI Act', date: '2024-07-12', type: 'REG', eurlex_url: 'https://example.com' }],
+      sparql: 'SELECT DISTINCT ?work ...',
+    })
+    const result = await handleEurlexSearch({
+      query: 'artificial intelligence',
+      resource_type: 'any',
+      language: 'DEU',
+      limit: 10,
+    })
+    const parsed = JSON.parse(result.content[0].text)
+    expect(parsed.query_used).toBe('SELECT DISTINCT ?work ...')
   })
 
   it('T17 – API error returns structured error', async () => {

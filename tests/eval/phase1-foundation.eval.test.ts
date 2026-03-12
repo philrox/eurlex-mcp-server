@@ -131,7 +131,6 @@ describe('Phase 1 Eval – Foundation', () => {
     it('FetchResult is usable as a type', () => {
       const result: FetchResult = {
         celex_id: '32020R0001',
-        title: 'Test',
         language: 'DEU',
         content: 'content',
         truncated: false,

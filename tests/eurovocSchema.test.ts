@@ -18,4 +18,21 @@ describe('eurovocSchema', () => {
   it('E3 – requires concept min 2 chars', () => {
     expect(() => eurovocSchema.parse({ concept: 'a' })).toThrow()
   })
+
+  it('rejects concept over 500 chars', () => {
+    expect(() => eurovocSchema.parse({ concept: 'x'.repeat(501) })).toThrow()
+  })
+
+  it('rejects limit below 1', () => {
+    expect(() => eurovocSchema.parse({ concept: 'test', limit: 0 })).toThrow()
+  })
+
+  it('rejects limit above 50', () => {
+    expect(() => eurovocSchema.parse({ concept: 'test', limit: 51 })).toThrow()
+  })
+
+  it('accepts limit of 50', () => {
+    const result = eurovocSchema.parse({ concept: 'test', limit: 50 })
+    expect(result.limit).toBe(50)
+  })
 })

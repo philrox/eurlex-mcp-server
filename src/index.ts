@@ -11,6 +11,7 @@ import { registerCitationsTool } from './tools/citations.js'
 import { registerEurovocTool } from './tools/eurovoc.js'
 import { registerConsolidatedTool } from './tools/consolidated.js'
 import { registerGuidePrompt } from './prompts/guide.js'
+import { SESSION_TTL_MS } from './constants.js'
 
 // ---------------------------------------------------------------------------
 // Factory
@@ -37,11 +38,32 @@ export function createServer(): McpServer {
 // HTTP transport (Streamable HTTP)
 // ---------------------------------------------------------------------------
 
-export async function runHTTP(): Promise<void> {
+export function createApp(): {
+  app: express.Express
+  transports: Map<string, StreamableHTTPServerTransport>
+  lastSeen: Map<string, number>
+} {
   const app = express()
   app.use(express.json())
 
   const transports = new Map<string, StreamableHTTPServerTransport>()
+  const lastSeen = new Map<string, number>()
+
+  // Sweep stale sessions (unref'd so it doesn't prevent exit)
+  const sweep = setInterval(() => {
+    const now = Date.now()
+    for (const [sid, ts] of lastSeen) {
+      if (now - ts > SESSION_TTL_MS) {
+        const t = transports.get(sid)
+        if (t) {
+          t.close?.()
+          transports.delete(sid)
+        }
+        lastSeen.delete(sid)
+      }
+    }
+  }, 60_000)
+  sweep.unref()
 
   // POST /mcp — create or reuse session
   app.post('/mcp', async (req: Request, res: Response) => {
@@ -49,6 +71,7 @@ export async function runHTTP(): Promise<void> {
 
     if (sessionId && transports.has(sessionId)) {
       const transport = transports.get(sessionId)!
+      lastSeen.set(sessionId, Date.now())
       await transport.handleRequest(req, res, req.body)
       return
     }
@@ -63,6 +86,7 @@ export async function runHTTP(): Promise<void> {
       sessionIdGenerator: () => randomUUID(),
       onsessioninitialized: (sid) => {
         transports.set(sid, transport)
+        lastSeen.set(sid, Date.now())
       },
     })
 
@@ -106,6 +130,12 @@ export async function runHTTP(): Promise<void> {
   app.get('/health', (_req: Request, res: Response) => {
     res.json({ status: 'ok', server: 'eurlex-mcp-server' })
   })
+
+  return { app, transports, lastSeen }
+}
+
+export async function runHTTP(): Promise<void> {
+  const { app } = createApp()
 
   const port = process.env.PORT || '3001'
   app.listen(Number(port), () => {

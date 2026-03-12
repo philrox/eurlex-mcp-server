@@ -14,7 +14,7 @@ const TIMEOUT = 60_000 // 60 seconds per test (Cellar SPARQL can be slow)
 describe('Phase 5 – Live Validation', () => {
   // V1: SPARQL Endpoint erreichbar (POST) → HTTP 200, JSON response
   it('V1: SPARQL endpoint is reachable and returns results', async () => {
-    const results = await client.sparqlQuery('Datenschutz-Grundverordnung', { limit: 1 })
+    const { results } = await client.sparqlQuery('Datenschutz-Grundverordnung', { limit: 1 })
     expect(Array.isArray(results)).toBe(true)
     expect(results.length).toBeGreaterThanOrEqual(1)
 
@@ -27,7 +27,7 @@ describe('Phase 5 – Live Validation', () => {
 
   // V2: AI Act auffindbar via Titel-Suche → CELEX 32024R1689 in Results
   it('V2: AI Act is findable via title search (CELEX 32024R1689)', async () => {
-    const results = await client.sparqlQuery('künstliche Intelligenz', {
+    const { results } = await client.sparqlQuery('künstliche Intelligenz', {
       language: 'DEU',
       limit: 50,
     })
@@ -38,7 +38,7 @@ describe('Phase 5 – Live Validation', () => {
 
   // V3: DSGVO auffindbar → CELEX 32016R0679
   it('V3: DSGVO is findable via title search (CELEX 32016R0679)', async () => {
-    const results = await client.sparqlQuery('Datenschutz-Grundverordnung', {
+    const { results } = await client.sparqlQuery('Datenschutz-Grundverordnung', {
       language: 'DEU',
       limit: 50,
     })
@@ -117,7 +117,7 @@ describe('Phase 5 – Live Validation', () => {
 
   // S-LIVE-1: Enhanced Search with resource_type REG — verify filter is applied
   it('S-LIVE-1: sparqlQuery with resource_type REG finds regulations', async () => {
-    const results = await client.sparqlQuery('Datenschutz', {
+    const { results } = await client.sparqlQuery('Datenschutz', {
       resource_type: 'REG',
       language: 'DEU',
       limit: 10,

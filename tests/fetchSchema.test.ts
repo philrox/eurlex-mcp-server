@@ -1,0 +1,25 @@
+import { describe, it, expect } from 'vitest'
+import { ZodError } from 'zod'
+import { fetchSchema } from '../src/schemas/fetchSchema.js'
+
+describe('fetchSchema', () => {
+  it('F1 – accepts standard CELEX ID', () => {
+    const result = fetchSchema.parse({ celex_id: '32024R1689' })
+    expect(result.celex_id).toBe('32024R1689')
+  })
+
+  it('F2 – accepts CELEX ID with parentheses (corrigenda)', () => {
+    const result = fetchSchema.parse({ celex_id: '32023D2454(02)' })
+    expect(result.celex_id).toBe('32023D2454(02)')
+  })
+
+  it('F3 – rejects dangerous characters like <script>', () => {
+    expect(() => fetchSchema.parse({ celex_id: '<script>' })).toThrow(ZodError)
+    expect(() => fetchSchema.parse({ celex_id: '32024R1689<x>' })).toThrow(ZodError)
+  })
+
+  it('F4 – rejects empty and too-short IDs', () => {
+    expect(() => fetchSchema.parse({ celex_id: '' })).toThrow(ZodError)
+    expect(() => fetchSchema.parse({ celex_id: '3AB' })).toThrow(ZodError)
+  })
+})

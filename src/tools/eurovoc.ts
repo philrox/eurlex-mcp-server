@@ -1,5 +1,6 @@
 import { eurovocSchema } from '../schemas/eurovocSchema.js'
 import { CellarClient } from '../services/cellarClient.js'
+import { toolError } from '../utils.js'
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 
 export async function handleEurlexByEurovoc(input: {
@@ -31,11 +32,7 @@ export async function handleEurlexByEurovoc(input: {
       }],
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    return {
-      content: [{ type: 'text' as const, text: `Error: ${message}` }],
-      isError: true,
-    }
+    return toolError(error)
   }
 }
 

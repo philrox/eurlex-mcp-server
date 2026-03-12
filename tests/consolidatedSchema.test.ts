@@ -16,4 +16,24 @@ describe('consolidatedSchema', () => {
   it('CO3 – rejects year below 1950', () => {
     expect(() => consolidatedSchema.parse({ doc_type: 'reg', year: 1900, number: 1 })).toThrow()
   })
+
+  it('rejects year above 2100', () => {
+    expect(() => consolidatedSchema.parse({ doc_type: 'reg', year: 2101, number: 1 })).toThrow()
+  })
+
+  it('rejects number below 1', () => {
+    expect(() => consolidatedSchema.parse({ doc_type: 'reg', year: 2024, number: 0 })).toThrow()
+  })
+
+  it('rejects max_chars below 1000', () => {
+    expect(() => consolidatedSchema.parse({ doc_type: 'reg', year: 2024, number: 1, max_chars: 999 })).toThrow()
+  })
+
+  it('rejects max_chars above 50000', () => {
+    expect(() => consolidatedSchema.parse({ doc_type: 'reg', year: 2024, number: 1, max_chars: 50001 })).toThrow()
+  })
+
+  it('rejects unknown format', () => {
+    expect(() => consolidatedSchema.parse({ doc_type: 'reg', year: 2024, number: 1, format: 'pdf' })).toThrow()
+  })
 })

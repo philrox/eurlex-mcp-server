@@ -38,6 +38,24 @@ describe('handleEurlexConsolidated()', () => {
     expect(parsed.eli_url).toContain('/deu/xhtml')
   })
 
+  it('CO8b – plain format strips script and style tags completely', async () => {
+    mockFetchConsolidated.mockResolvedValueOnce(
+      mockResult('<html><script>if (a > b) { alert("x") }</script><p>Hello</p><style>.foo > .bar { color: red }</style></html>')
+    )
+    const result = await handleEurlexConsolidated({
+      doc_type: 'reg',
+      year: 2024,
+      number: 1689,
+      language: 'DEU',
+      format: 'plain',
+      max_chars: 20000,
+    })
+    const parsed = JSON.parse(result.content[0].text)
+    expect(parsed.content).not.toContain('alert')
+    expect(parsed.content).not.toContain('color')
+    expect(parsed.content).toContain('Hello')
+  })
+
   it('CO8 – strips HTML in plain format', async () => {
     mockFetchConsolidated.mockResolvedValueOnce(mockResult('<html><body><p>Text</p></body></html>'))
 
@@ -55,6 +73,21 @@ describe('handleEurlexConsolidated()', () => {
     expect(parsed.content).toContain('Text')
   })
 
+  it('CO9b – char_count reports original length when truncated', async () => {
+    mockFetchConsolidated.mockResolvedValueOnce(mockResult('x'.repeat(5000)))
+    const result = await handleEurlexConsolidated({
+      doc_type: 'reg',
+      year: 2024,
+      number: 1689,
+      language: 'DEU',
+      format: 'xhtml',
+      max_chars: 1000,
+    })
+    const parsed = JSON.parse(result.content[0].text)
+    expect(parsed.truncated).toBe(true)
+    expect(parsed.char_count).toBe(5000)
+  })
+
   it('CO9 – truncates at max_chars', async () => {
     mockFetchConsolidated.mockResolvedValueOnce(mockResult('x'.repeat(30000)))
 
@@ -69,7 +102,7 @@ describe('handleEurlexConsolidated()', () => {
 
     const parsed = JSON.parse(result.content[0].text)
     expect(parsed.truncated).toBe(true)
-    expect(parsed.char_count).toBeLessThanOrEqual(5000)
+    expect(parsed.char_count).toBe(30000)
   })
 
   it('CO-TYPE – result satisfies ConsolidatedResult shape', async () => {
@@ -114,5 +147,19 @@ describe('handleEurlexConsolidated()', () => {
     })
 
     expect(result.isError).toBe(true)
+  })
+
+  it('CO-SCHEMA – rejects unknown doc_type via Zod schema validation', async () => {
+    const result = await handleEurlexConsolidated({
+      doc_type: 'unknown',
+      year: 2024,
+      number: 1689,
+      language: 'DEU',
+      format: 'xhtml',
+      max_chars: 20000,
+    })
+
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text).toMatch(/Error:/)
   })
 })

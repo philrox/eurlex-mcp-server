@@ -6,6 +6,10 @@ export const DEFAULT_LIMIT = 10
 export const MAX_CHARS_DEFAULT = 20000
 export const MAX_CHARS_LIMIT = 50000
 export const REQUEST_TIMEOUT_MS = 30000
+export const SESSION_TTL_MS = 30 * 60 * 1000
+
+// {4,30} — supports parenthesized corrigenda suffixes, e.g. 32023D2454(02)
+export const CELEX_REGEX = /^\d[A-Z0-9()]{4,30}$/
 
 export const RESOURCE_TYPES = [
   'REG', 'REG_IMPL', 'REG_DEL',

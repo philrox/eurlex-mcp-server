@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { CellarClient } from '../services/cellarClient.js'
 import { searchSchema } from '../schemas/searchSchema.js'
-import type { SearchResult } from '../types.js'
+import { toolError } from '../utils.js'
 
 export async function handleEurlexSearch(input: {
   query: string
@@ -13,7 +13,7 @@ export async function handleEurlexSearch(input: {
 }) {
   try {
     const client = new CellarClient()
-    const results: SearchResult[] = await client.sparqlQuery(input.query, {
+    const { results, sparql } = await client.sparqlQuery(input.query, {
       resource_type: input.resource_type,
       language: input.language,
       limit: input.limit,
@@ -27,30 +27,14 @@ export async function handleEurlexSearch(input: {
       }
     }
 
-    const queryParams = {
-      query: input.query,
-      resource_type: input.resource_type,
-      language: input.language,
-      limit: input.limit,
-      date_from: input.date_from,
-      date_to: input.date_to,
-    }
-    const query_used = typeof client.buildSparqlQuery === 'function'
-      ? client.buildSparqlQuery(queryParams)
-      : input.query
-
     return {
       content: [{
         type: 'text' as const,
-        text: JSON.stringify({ results, total: results.length, query_used }),
+        text: JSON.stringify({ results, total: results.length, query_used: sparql }),
       }],
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    return {
-      content: [{ type: 'text' as const, text: `Error: ${message}` }],
-      isError: true,
-    }
+    return toolError(error)
   }
 }
 
