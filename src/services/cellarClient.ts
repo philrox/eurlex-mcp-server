@@ -651,7 +651,10 @@ export class CellarClient {
     })
 
     if (response.status === 404) {
-      throw new Error(`Consolidated document not found: ${consolidatedCelex}`)
+      throw new Error(
+        `Keine konsolidierte Fassung für ${docType}/${year}/${number} verfügbar (${consolidatedCelex} nicht abrufbar). ` +
+        `Verwenden Sie eurlex_fetch mit der CELEX-ID für die Original-OJ-Version.`
+      )
     }
 
     if (!response.ok) {

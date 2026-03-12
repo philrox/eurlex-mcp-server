@@ -123,14 +123,14 @@ describe('fetchConsolidated()', () => {
     expect((opts2.headers as Record<string, string>)['Accept-Language']).toBe('fr')
   })
 
-  it('CO-404 – throws when Cellar REST returns 404 for resolved CELEX', async () => {
+  it('CO-404 – throws with eurlex_fetch hint when Cellar REST returns 404', async () => {
     mockFetch
       .mockResolvedValueOnce(mockSparqlCelexResponse('02024R1689-20240712'))
       .mockResolvedValueOnce({ ok: false, status: 404 })
 
     const client = new CellarClient()
     await expect(client.fetchConsolidated('reg', 2024, 1689, 'DEU'))
-      .rejects.toThrow(/not found|nicht gefunden/i)
+      .rejects.toThrow(/eurlex_fetch/)
   })
 
   it('CO-500 – handles non-404 HTTP errors from Cellar REST', async () => {
