@@ -33,7 +33,26 @@ describe('handleEurlexCitations()', () => {
     expect(parsed.citations).toHaveLength(1)
   })
 
-  it('C12 – returns isError on failure', async () => {
+  it('C12 – returns informative message when no citations found', async () => {
+    mockCitationsQuery.mockResolvedValueOnce({
+      celex_id: '99999X9999',
+      citations: [],
+      total: 0,
+    })
+
+    const result = await handleEurlexCitations({
+      celex_id: '99999X9999',
+      language: 'DEU',
+      direction: 'both',
+      limit: 20,
+    })
+
+    expect(result.isError).toBeUndefined()
+    expect(result.content[0].text).toContain('Keine Zitierungen gefunden')
+    expect(result.content[0].text).toContain('99999X9999')
+  })
+
+  it('C13 – returns isError on failure', async () => {
     mockCitationsQuery.mockRejectedValueOnce(new Error('SPARQL timeout'))
 
     const result = await handleEurlexCitations({

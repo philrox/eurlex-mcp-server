@@ -19,6 +19,12 @@ export async function handleEurlexCitations(input: {
       parsed.limit
     )
 
+    if (result.citations.length === 0) {
+      return {
+        content: [{ type: 'text' as const, text: `Keine Zitierungen gefunden für CELEX: ${parsed.celex_id}` }],
+      }
+    }
+
     return {
       content: [{
         type: 'text' as const,
