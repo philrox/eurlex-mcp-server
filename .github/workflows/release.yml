@@ -81,7 +81,7 @@ jobs:
 
       - name: Deploy
         run: |
-          IMAGE=$(grep -oP '":[\\w.-]+"' push-output.txt | tr -d '"')
+          IMAGE=$(sed -n 's/.*"\(:[^"]*\)".*/\1/p' push-output.txt)
           if [ -z "$IMAGE" ]; then
             echo "Failed to parse image name from push output"
             exit 1
